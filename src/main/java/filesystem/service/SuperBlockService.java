@@ -41,9 +41,9 @@ public class SuperBlockService {
     private int pageSize;
 
     /**
-     * @param numOfInodes - the amount of inodes
-     * @param pageSize    - size of page (as well the minimum size of segment)
-     * @param file        - file in which build superBlock in
+     * @param numOfInodes  the amount of inodes
+     * @param pageSize     size of page (as well the minimum size of segment)
+     * @param file         file in which build superBlock in
      */
     public void initialiseSuperBlock(int numOfInodes, int pageSize, File file) {
         if (initialised) throw new SuperBlockException("SuperBlock is already initialised!");
@@ -77,7 +77,7 @@ public class SuperBlockService {
      * This constructor considers that file has already initialised fileSystem (as well superBlock in it).
      * It will read this superBlock and will fill all needed fields.
      *
-     * @param file - file with initialised superBlock in it
+     * @param file file with initialised superBlock in it
      */
     public void initialiseSuperBlockFromFile(File file) {
         if (initialised) throw new SuperBlockException("SuperBlock is already initialised!");
