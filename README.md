@@ -14,7 +14,7 @@ Segment - 1 or more contiguous pages.
 #### SuperBlock
 ![GitHub Logo](./doc/superblock.png)
 
-SuperBlock is some amount of inodes which have following properties:
+SuperBlock is some amount of **inodes** which have following properties:
 
 1) segment - start page where data is stored (pointing to the start of segment sequence)
 2) size - size of stored data
@@ -28,8 +28,8 @@ That is memory splitted on pages and also service which can allocate data or rel
 try to allocate data less fragmented by using eager algorithm. As well during release of segments storage will merge all 
 splitted segments for internal representation and will make them free again.
  
-### FileManager
+#### FileManager
 
-FileManager will use both storage and superBlock services to keep track of allocated segments, putting data inside emulating
+FileManager will use both **storage** and **superBlock** services to keep track of allocated segments, putting data inside emulating
 commonly used file abstractions like file, directory, hardlink.
 

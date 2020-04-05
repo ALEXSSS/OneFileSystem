@@ -6,7 +6,7 @@ import filesystem.entity.memorymarks.IgnoreFromMemoryChecking;
 import static filesystem.utils.ByteArrayConverterUtils.stringToByteArray;
 
 /**
- * Represents abstract file in one file system.
+ * Represents abstract file in OneFileSystem.
  */
 @IgnoreFromMemoryChecking
 public class BaseFileInf implements ByteRepresentable {

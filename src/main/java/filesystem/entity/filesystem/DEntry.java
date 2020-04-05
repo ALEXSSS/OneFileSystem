@@ -33,16 +33,8 @@ public class DEntry implements ByteRepresentable {
         return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public int getInode() {
         return inode;
-    }
-
-    public void setInode(int inode) {
-        this.inode = inode;
     }
 
     public static DEntry of(String name, int inode){

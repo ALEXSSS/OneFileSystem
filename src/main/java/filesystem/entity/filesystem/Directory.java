@@ -38,6 +38,10 @@ public class Directory extends BaseFileInf implements ByteRepresentable {
         return new Directory(name, DEntry.of("..", parentInode), dEntries);
     }
 
+    /*
+     * Method will produce following byte array:
+     * |name|num of dEntries|parent directory inode| .... dEntries .....|
+     */
     @Override
     public byte[] toByteArray() {
         byte[] nameBytes = stringToByteArray(name);
@@ -85,8 +89,8 @@ public class Directory extends BaseFileInf implements ByteRepresentable {
         return dEntries.remove(dEntry);
     }
 
-    public DEntry getDEntry(DEntry dEntry){
-        if (dEntries.contains(dEntry)){
+    public DEntry getDEntry(DEntry dEntry) {
+        if (dEntries.contains(dEntry)) {
             return dEntries.get(dEntries.indexOf(dEntry));
         }
         return null;

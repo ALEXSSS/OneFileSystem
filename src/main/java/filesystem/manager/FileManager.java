@@ -22,7 +22,6 @@ import static filesystem.utils.FileSystemUtils.addToPath;
 import static filesystem.utils.FileSystemUtils.getFileNameByPath;
 import static filesystem.utils.FileSystemUtils.getFileParent;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 
@@ -178,8 +177,7 @@ public class FileManager implements OneFileSystem {
 
     @Override
     public List<String> getFileNamesInDirectory(String path) {
-        int inode = getFileInodeByPath(path);
-        return readDirectory(inode).getdEntries().stream().map(DEntry::getName).collect(toList());
+        return getContentInDirectory(path).stream().map(DEntry::getName).collect(toList());
     }
 
     @Override
