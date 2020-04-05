@@ -30,6 +30,6 @@ splitted segments for internal representation and will make them free again.
  
 #### FileManager
 
-FileManager will use both **storage** and **superBlock** services to keep track of allocated segments, putting data inside emulating
+FileManager will use both **storage** and **superBlock** services to keep track of allocated segments, putting data inside and emulating
 commonly used file abstractions like file, directory, hardlink.
 
