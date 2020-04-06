@@ -7,11 +7,10 @@ import filesystem.entity.exception.FileManagerException;
 import filesystem.entity.filesystem.BaseFileInf;
 import filesystem.entity.filesystem.DEntry;
 import filesystem.entity.filesystem.Directory;
+import filesystem.entity.filesystem.DirectoryReadResult;
 import filesystem.service.SegmentAllocatorService;
 import filesystem.service.SuperBlockService;
-import filesystem.utils.FileSystemUtils;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -25,13 +24,16 @@ import static filesystem.utils.FileSystemUtils.addToPath;
 import static filesystem.utils.FileSystemUtils.checkThatDirectoryAncestor;
 import static filesystem.utils.FileSystemUtils.getFileNameByPath;
 import static filesystem.utils.FileSystemUtils.getFileParent;
+import static filesystem.utils.FileSystemUtils.pathToSteps;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
 
 /**
- * class which provides api to work with oneFileSystem
+ * Class which provides api to work with oneFileSystem.
+ * Not thread-safe!!!
+ *
+ * @see FileManagerSynchronized
  */
 public class FileManager implements OneFileSystem {
     private final FileSystemConfiguration fileSystemConfiguration;
@@ -154,6 +156,10 @@ public class FileManager implements OneFileSystem {
 
     // internal api
 
+    /**
+     * @param pathToFile where to write
+     * @param data       array of bytes to write
+     */
     @Override
     public void writeToFile(String pathToFile, byte[] data) {
         int inodeNum = getFileInodeByPath(pathToFile);
@@ -166,6 +172,10 @@ public class FileManager implements OneFileSystem {
         writeDataByInode(inodeNum, data);
     }
 
+    /**
+     * @param pathToFile to create byteStream
+     * @return byte stream to read data from
+     */
     @Override
     public ByteStream readFileByByteStream(String pathToFile) {
         int inodeNum = getFileInodeByPath(pathToFile);
@@ -178,17 +188,57 @@ public class FileManager implements OneFileSystem {
         return segmentAllocatorService.readDataFromSegmentByByteStream(inode.getSegment());
     }
 
+    /**
+     * @param pathToFileParent directory where file is located
+     * @param whereToMove      directory to place file in
+     * @param fileName         name of file to move (file could be directory type)
+     */
     @Override
     public void moveFileToDirectory(String pathToFileParent, String whereToMove, String fileName) {
         createHardLink(addToPath(pathToFileParent, fileName), whereToMove, fileName);
         removeFile(pathToFileParent, fileName);
     }
 
+    /**
+     * @param path     where file is located
+     * @param withSize boolean if you need to know size as well (please, remember, that this will take some extra time)
+     * @return list of files' descriptions
+     */
     @Override
-    public List<String> getFileNamesInDirectory(String path) {
+    public List<DirectoryReadResult> getFilesInDirectory(String path, boolean withSize) {
+        return getContentInDirectory(path).stream()
+                .map(
+                        dEntry -> {
+                            Inode inode = superBlockService.readInode(dEntry.getInode());
+                            long fileSize = withSize ? getFileSize(dEntry.getInode()) : 0;
+                            return DirectoryReadResult.of(dEntry.getName(), inode.getFileType(), fileSize);
+                        })
+                .collect(toList());
+    }
+
+    /**
+     * withSize by default false
+     *
+     * @see #getFilesInDirectory(String, boolean)
+     */
+    public List<DirectoryReadResult> getFilesInDirectory(String path) {
+        return getFilesInDirectory(path, false);
+    }
+
+
+    /**
+     * return only names
+     *
+     * @see #getFilesInDirectory(String, boolean)
+     */
+    public List<String> getFilesNamesInDirectory(String path) {
         return getContentInDirectory(path).stream().map(DEntry::getName).collect(toList());
     }
 
+    /**
+     * @param pathToFileParent directory where file should be located
+     * @param fileName         name of new directory
+     */
     @Override
     public void createDirectory(String pathToFileParent, String fileName) {
         checkFileName(fileName);
@@ -199,6 +249,11 @@ public class FileManager implements OneFileSystem {
         addDEntryToDirectory(parentInode, DEntry.of(fileName, inodeOfNewDirectoryNum));
     }
 
+    /**
+     * @param pathToFileParent directory where file should be located
+     * @param fileName         name of new file
+     * @param size             size of file
+     */
     @Override
     public void createFile(String pathToFileParent, String fileName, long size) {
         checkFileName(fileName);
@@ -206,11 +261,21 @@ public class FileManager implements OneFileSystem {
         addDEntryToDirectory(getFileInodeByPath(pathToFileParent), DEntry.of(fileName, fileInodeNum));
     }
 
+    /**
+     * @param pathToFileParent directory where file should be located
+     * @param fileName         name of new file
+     */
     @Override
     public void createFile(String pathToFileParent, String fileName) {
         createFile(pathToFileParent, fileName, 1);
     }
 
+
+    /**
+     * @param pathToFile     path to file
+     * @param whereToAdd     directory to add hardlink
+     * @param nameOfHardLink name of this hardlink
+     */
     @Override
     public void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink) {
         checkFileName(nameOfHardLink);
@@ -226,6 +291,11 @@ public class FileManager implements OneFileSystem {
         superBlockService.updateInode(fileInode, inode);
     }
 
+    /**
+     * @param pathToFile  path to be copied file
+     * @param whereToCopy directory to copy file in
+     * @param withName    new name of file
+     */
     @Override
     public void copyFileToDirectory(String pathToFile, String whereToCopy, String withName) {
         int inodeNum = getFileInodeByPath(pathToFile);
@@ -246,35 +316,51 @@ public class FileManager implements OneFileSystem {
         }
     }
 
+    /**
+     * @param pathToFile path to file
+     */
     @Override
     public void removeFile(String pathToFile) {
         String fileName = getFileNameByPath(pathToFile);
         removeFile(getFileParent(pathToFile), fileName);
     }
 
+
+    /**
+     * @return free num of pages in the file system
+     * @see #getSize()
+     */
     @Override
     public int getSizeInPages() {
         return segmentAllocatorService.getRemainingCapacity();
     }
 
+    /**
+     * @return free num of bytes in file system
+     * @see #getSizeInPages()
+     */
     @Override
     public long getSize() {
         return segmentAllocatorService.getRemainingCapacity() * fileSystemConfiguration.getPageSize();
     }
 
+    /**
+     * @param pathToFile path to file to evaluate size of
+     * @return size of file (for directories size of all files inside without repetitions due to hard links)
+     */
     @Override
-    public long getFileSize(String pathToFile){
+    public long getFileSize(String pathToFile) {
         return getFileSize(getFileInodeByPath(pathToFile), new HashSet<>(), 0);
     }
 
     // some useful methods --------------------------------------------------------------------------
-    private long getFileSize(int inodeNum, Set<Integer> consideredInodes, long accumulated){
-        if (consideredInodes.contains(inodeNum)){
+    private long getFileSize(int inodeNum, Set<Integer> consideredInodes, long accumulated) {
+        if (consideredInodes.contains(inodeNum)) {
             return accumulated;
         }
 
         Inode inode = superBlockService.readInode(inodeNum);
-        if(inode.getFileType() == FILE){
+        if (inode.getFileType() == FILE) {
             consideredInodes.add(inodeNum);
             return inode.getSize() + accumulated;
         }
@@ -285,6 +371,10 @@ public class FileManager implements OneFileSystem {
         }
 
         return accumulated;
+    }
+
+    public long getFileSize(int inodeNum) {
+        return getFileSize(inodeNum, new HashSet<>(), 0);
     }
 
     private boolean checkCyclicReferences(String ancestor, String directoryPathToCheck) {
@@ -412,7 +502,7 @@ public class FileManager implements OneFileSystem {
     }
 
     private int getFileInodeByPath(String path) {
-        List<String> steps = FileSystemUtils.pathToSteps(path);
+        List<String> steps = pathToSteps(path);
 
         int curr = 0;
         Directory curDirectory = readDirectory(curr);

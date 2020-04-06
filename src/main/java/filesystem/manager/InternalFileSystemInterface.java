@@ -1,6 +1,7 @@
 package filesystem.manager;
 
 import filesystem.entity.ByteStream;
+import filesystem.entity.filesystem.DirectoryReadResult;
 
 import java.util.List;
 
@@ -39,10 +40,11 @@ public interface InternalFileSystemInterface {
 
     /**
      * @param path where file is located
-     * @return list of file's names
+     * @param withSize boolean if you need to know size as well (please, remember, that this will take some extra time)
+     * @return list of file's descriptions
      * @throws filesystem.entity.exception.FileManagerException if directory doesn't exist
      */
-    List<String> getFileNamesInDirectory(String path);
+    List<DirectoryReadResult> getFilesInDirectory(String path, boolean withSize);
 
     /**
      * @param pathToFileParent directory where file should be located
@@ -109,7 +111,8 @@ public interface InternalFileSystemInterface {
     long getSize();
 
     /**
-     * For directories method will traverse file structure using dfs algorithm.
+     * For directories method will traverse file structure using dfs algorithm,
+     * returning the size of all files inside without repetitions due to hard links.
      *
      * @param pathToFile path to file to evaluate size of
      * @return size of file

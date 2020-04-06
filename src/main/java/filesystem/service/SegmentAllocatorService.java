@@ -33,7 +33,7 @@ public class SegmentAllocatorService {
     private final long initialOffset; // equals to super block size
     private final int capacity;
     private final int pageSize;
-    private volatile int remainingCapacity;
+    private int remainingCapacity;
     private final NavigableSet<Segment> freeSegments;
     private final NavigableSet<Segment> freeSegmentsPosition;
     private final File file;

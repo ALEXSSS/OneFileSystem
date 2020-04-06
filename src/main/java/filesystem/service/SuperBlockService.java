@@ -34,11 +34,11 @@ import static filesystem.entity.filesystem.FileType.FILE;
  * ------------------------
  */
 public class SuperBlockService {
-    private volatile boolean initialised;
-    private volatile int numOfInodes;
-    private volatile File file;
-    private volatile Queue<Integer> freeInodes;
-    private volatile int pageSize;
+    private boolean initialised;
+    private int numOfInodes;
+    private File file;
+    private Queue<Integer> freeInodes;
+    private int pageSize;
 
     /**
      * @param numOfInodes the amount of inodes

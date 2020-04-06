@@ -4,6 +4,7 @@ import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.exception.FileManagerException;
 import filesystem.entity.filesystem.BaseFileInf;
+import filesystem.entity.filesystem.DirectoryReadResult;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -16,8 +17,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import static filesystem.entity.filesystem.FileType.DIRECTORY;
+import static filesystem.entity.filesystem.FileType.FILE;
 import static junitx.framework.FileAssert.assertBinaryEquals;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -48,18 +52,18 @@ public class FileManagerTest {
 
     @Test
     public void fileManagerImageTest() throws IOException {
-        assertThat(fileManager.getFileNamesInDirectory("."), is(empty()));
+        assertThat(fileManager.getFilesNamesInDirectory("."), is(empty()));
         fileManager.createDirectory("", "first");
         fileManager.createDirectory("", "second");
-        assertThat(fileManager.getFileNamesInDirectory(""),
+        assertThat(fileManager.getFilesNamesInDirectory(""),
                 containsInAnyOrder("first", "second"));
 
         fileManager.createDirectory("first/", "third");
-        assertThat(fileManager.getFileNamesInDirectory("first/"),
+        assertThat(fileManager.getFilesNamesInDirectory("first/"),
                 containsInAnyOrder("third"));
         fileManager.createFile("second/", "smallFile", 500);
 
-        assertThat(fileManager.getFileNamesInDirectory("second/"),
+        assertThat(fileManager.getFilesNamesInDirectory("second/"),
                 containsInAnyOrder("smallFile"));
 
 
@@ -115,10 +119,10 @@ public class FileManagerTest {
         fileManager.createDirectory("first", "second");
         fileManager.createFile("first/second/", "someFile", 0);
 
-        assertThat("Content checking", fileManager.getFileNamesInDirectory("./first"),
+        assertThat("Content checking", fileManager.getFilesNamesInDirectory("./first"),
                 containsInAnyOrder("second"));
 
-        assertThat("Content checking", fileManager.getFileNamesInDirectory("./first/second"),
+        assertThat("Content checking", fileManager.getFilesNamesInDirectory("./first/second"),
                 containsInAnyOrder("someFile"));
 
         // will throw exception as someFile isn't directory
@@ -160,7 +164,7 @@ public class FileManagerTest {
         fileManager.createHardLink("./popularFile", "./copy", "8");
         fileManager.createHardLink("./popularFile", "./copy", "9");
 
-        assertThat("Content checking", fileManager.getFileNamesInDirectory("./copy"),
+        assertThat("Content checking", fileManager.getFilesNamesInDirectory("./copy"),
                 containsInAnyOrder("0", "1", "2", "3", "4", "5", "6", "7", "8", "9"));
 
         int afterCreationSize = fileManager.getSizeInPages();
@@ -177,7 +181,7 @@ public class FileManagerTest {
 
         assertEquals(afterCreationSize, fileManager.getSizeInPages());
 
-        assertThat("Content checking", fileManager.getFileNamesInDirectory("./copy"),
+        assertThat("Content checking", fileManager.getFilesNamesInDirectory("./copy"),
                 containsInAnyOrder("9"));
 
         fileManager.removeFile("./copy/9");
@@ -197,12 +201,12 @@ public class FileManagerTest {
         fileManager.createFile("first/second/", "someFile", 100);
 
         for (int i = 0; i < 1000; i++) {
-            assertThat(fileManager.getFileNamesInDirectory("first/second/"),
+            assertThat(fileManager.getFilesNamesInDirectory("first/second/"),
                     containsInAnyOrder("someFile"));
 
             fileManager.removeFile("first/second/someFile");
 
-            assertThat(fileManager.getFileNamesInDirectory("first/second/"),
+            assertThat(fileManager.getFilesNamesInDirectory("first/second/"),
                     is(empty()));
 
             fileManager.createFile("first/second/", "someFile", 100);
@@ -242,7 +246,7 @@ public class FileManagerTest {
         fileManager.removeFile("./0");
 
 
-        assertThat(fileManager.getFileNamesInDirectory("."),
+        assertThat(fileManager.getFilesNamesInDirectory("."),
                 is(empty()));
 
         assertEquals("Size should be the same", size, fileManager.getSizeInPages());
@@ -274,22 +278,22 @@ public class FileManagerTest {
 
         int sizeAfterCreation = fileManager.getSizeInPages();
 
-        assertThat(fileManager.getFileNamesInDirectory("./first/sub1"),
+        assertThat(fileManager.getFilesNamesInDirectory("./first/sub1"),
                 is(firstNames));
-        assertThat(fileManager.getFileNamesInDirectory("./second/sub2"),
+        assertThat(fileManager.getFilesNamesInDirectory("./second/sub2"),
                 is(secondNames));
 
         fileManager.moveFileToDirectory("./first", "./second", "sub1");
         fileManager.moveFileToDirectory("./second", "./first", "sub2");
 
-        assertThat(fileManager.getFileNamesInDirectory("./first/sub2"),
+        assertThat(fileManager.getFilesNamesInDirectory("./first/sub2"),
                 is(secondNames));
-        assertThat(fileManager.getFileNamesInDirectory("./second/sub1"),
+        assertThat(fileManager.getFilesNamesInDirectory("./second/sub1"),
                 is(firstNames));
 
-        assertThat(fileManager.getFileNamesInDirectory("./first"),
+        assertThat(fileManager.getFilesNamesInDirectory("./first"),
                 containsInAnyOrder("sub2"));
-        assertThat(fileManager.getFileNamesInDirectory("./second"),
+        assertThat(fileManager.getFilesNamesInDirectory("./second"),
                 containsInAnyOrder("sub1"));
 
         assertEquals("Memory leak", sizeAfterCreation, fileManager.getSizeInPages());
@@ -336,6 +340,17 @@ public class FileManagerTest {
         assertArrayEquals("Data checking", toReadIn, data);
     }
 
+    @Test
+    public void getFilesInDirectoryTest() {
+        fileManager.createDirectory("", "first"); // will create first directory in root
+        fileManager.createDirectory(".", "second"); // will create second directory in root
+        fileManager.createDirectory("./", "third"); // will create third directory in root
+        fileManager.createDirectory("./first", "fourth"); // will create fourth directory in first
+        fileManager.createFile("/first", "fifth"); // will create fifth directory in first
+
+        assertThat(fileManager.getFilesInDirectory("./first", false),
+                containsInAnyOrder(DirectoryReadResult.of("fourth", DIRECTORY, 0), DirectoryReadResult.of("fifth", FILE, 0)));
+    }
 
     @Test
     public void getFileSizeTest() {
@@ -450,5 +465,45 @@ public class FileManagerTest {
         fileManager.createHardLink("", "", "1");
         fileManager.createHardLink("", "", "2");
         fileManager.createHardLink("", "", "2");
+    }
+
+    @Test
+    public void forDocTest() {
+        fileManager.createDirectory("", "first"); // will create first directory in root
+        fileManager.createDirectory(".", "second"); // will create second directory in root
+        fileManager.createDirectory("./", "third"); // will create third directory in root
+        fileManager.createDirectory("./first", "fourth"); // will create fourth directory in first
+        fileManager.createDirectory("/first", "fifth"); // will create fifth directory in first
+
+        fileManager.createFile("./first/fifth", "someFile"); // will create file in directory /first/fifth with name someFile
+        fileManager.createHardLink("./first/fifth", "/second", "fifthHardLink");
+
+        fileManager.getFilesInDirectory("./first");
+
+
+        // you can use version of this method with size of data specified, as it more effective for big files
+        fileManager.createFile(".", "someFile"); // will create someFile in the root
+        fileManager.writeToFileFromInputStream("./someFile", new ByteArrayInputStream(new byte[]{1,2,3,4,5}));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        fileManager.copyDataFromFileToOutputStream("./someFile", out);
+
+        System.out.println(Arrays.toString(out.toByteArray()));
+        // [1,2,3,4,5]
+
+        // internal api
+        fileManager.createFile(".", "anotherFile");
+        fileManager.writeToFile("./anotherFile", new byte[]{1,2,3,4,5,6});
+        fileManager.writeToFile("./anotherFile", new byte[]{7,8,9,10});
+
+        ByteStream byteStream = fileManager.readFileByByteStream("./anotherFile");
+        // you need to care about it if you use only internal api
+        System.out.println("You read file: "+ byteStream.getString()); // as name is stored in the file first
+        while (byteStream.hasNext()){
+            System.out.print(byteStream.getByte() + " ");
+        }
+        System.out.println();
+
+        fileManager.removeFile("./anotherFile");
     }
 }
