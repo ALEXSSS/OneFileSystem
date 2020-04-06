@@ -6,6 +6,7 @@ import filesystem.entity.exception.FileManagerException;
 import filesystem.entity.filesystem.BaseFileInf;
 import filesystem.entity.filesystem.DirectoryReadResult;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -467,6 +468,7 @@ public class FileManagerTest {
         fileManager.createHardLink("", "", "2");
     }
 
+    @Ignore
     @Test
     public void forDocTest() {
         fileManager.createDirectory("", "first"); // will create first directory in root
@@ -483,7 +485,7 @@ public class FileManagerTest {
 
         // you can use version of this method with size of data specified, as it more effective for big files
         fileManager.createFile(".", "someFile"); // will create someFile in the root
-        fileManager.writeToFileFromInputStream("./someFile", new ByteArrayInputStream(new byte[]{1,2,3,4,5}));
+        fileManager.writeToFileFromInputStream("./someFile", new ByteArrayInputStream(new byte[]{1, 2, 3, 4, 5}));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         fileManager.copyDataFromFileToOutputStream("./someFile", out);
@@ -493,17 +495,61 @@ public class FileManagerTest {
 
         // internal api
         fileManager.createFile(".", "anotherFile");
-        fileManager.writeToFile("./anotherFile", new byte[]{1,2,3,4,5,6});
-        fileManager.writeToFile("./anotherFile", new byte[]{7,8,9,10});
+        fileManager.writeToFile("./anotherFile", new byte[]{1, 2, 3, 4, 5, 6});
+        fileManager.writeToFile("./anotherFile", new byte[]{7, 8, 9, 10});
 
         ByteStream byteStream = fileManager.readFileByByteStream("./anotherFile");
         // you need to care about it if you use only internal api
-        System.out.println("You read file: "+ byteStream.getString()); // as name is stored in the file first
-        while (byteStream.hasNext()){
+        System.out.println("You read file: " + byteStream.getString()); // as name is stored in the file first
+        while (byteStream.hasNext()) {
             System.out.print(byteStream.getByte() + " ");
         }
         System.out.println();
 
+        // remove file
         fileManager.removeFile("./anotherFile");
+        // or whole directory
+        fileManager.removeFile("./second");
+
+        // copy file
+
+        // creation of what will be copied
+        fileManager.createFile("", "willBeCopied");
+        // let's write some data inside to check
+        fileManager.writeToFile("./willBeCopied", new byte[]{1, 2, 3, 4, 5});
+
+        // creation of directory to copy in
+        fileManager.createDirectory("./", "second");
+        fileManager.createDirectory("./second", "toCopyIn");
+
+        // how to copy
+        fileManager.copyFileToDirectory("./willBeCopied", "./second/toCopyIn", "ThatIsCopiedFile");
+
+        ByteStream byteStreamOfCopiedFile = fileManager.readFileByByteStream("./second/toCopyIn/ThatIsCopiedFile");
+        // reading copied file
+        System.out.println("You read file: " + byteStreamOfCopiedFile.getString()); // as name is stored in the file first
+        while (byteStreamOfCopiedFile.hasNext()) {
+            System.out.print(byteStreamOfCopiedFile.getByte() + " ");
+        }
+
+        // to get size of file, but remember that first bytes used to store file's name
+
+        fileManager.getFileSize("./second/toCopyIn/ThatIsCopiedFile");
+    }
+
+    @Ignore
+    @Test
+    public void forDocImageTest() throws IOException {
+        fileManager.createFile(".", "smallFile");
+        // it will copy image in oneFileSystem and back to another file
+        try (InputStream in = classLoader.getResourceAsStream("test.jpg");) {
+            fileManager.writeToFileFromInputStream("/smallFile", in);
+        }
+
+        File copiedJpg = new File("./doc/copied.jpg");
+        try (OutputStream out = new FileOutputStream(copiedJpg)) {
+            fileManager.copyDataFromFileToOutputStream("/smallFile", out);
+        }
+
     }
 }

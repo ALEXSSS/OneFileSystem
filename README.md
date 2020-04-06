@@ -55,7 +55,7 @@ fileManager.createDirectory("/first", "fifth"); // will create fifth directory i
 fileManager.createFile("./first/fifth", "someFile"); // will create file in directory /first/fifth with name someFile
 ```
 
-Or you can create hardlink 
+Or you can create hardlink (throwing exception if you truing make cyclic hardlink)
 
 ```
 // it will create hardlink on file ./first/fifth in directory second with name fifthHardLink
@@ -105,8 +105,45 @@ while (byteStream.hasNext()){
 To remove file simply write
 
 ```
+// remove file
 fileManager.removeFile("./anotherFile");
+// or whole directory
+fileManager.removeFile("./second");
 ```
 
-To copy file you can do something like that ... 
+As well you can copy files inside OneFileSystem
 
+```
+// creation of what will be copied
+fileManager.createFile("", "willBeCopied");
+// let's write some data inside to check
+fileManager.writeToFile("./willBeCopied", new byte[]{1, 2, 3, 4, 5});
+
+// creation of directory to copy in
+fileManager.createDirectory("./", "second");
+fileManager.createDirectory("./second", "toCopyIn");
+
+// how to copy
+fileManager.copyFileToDirectory("./willBeCopied", "./second/toCopyIn", "ThatIsCopiedFile");
+
+ByteStream byteStreamOfCopiedFile = fileManager.readFileByByteStream("./second/toCopyIn/ThatIsCopiedFile");
+// reading copied file
+System.out.println("You read file: " + byteStreamOfCopiedFile.getString()); // as name is stored in the file first
+while (byteStreamOfCopiedFile.hasNext()) {
+    System.out.print(byteStreamOfCopiedFile.getByte() + " ");
+}
+// 1 2 3 4 5
+```
+
+You can get file size
+
+```
+// to get size of file, but remember that first bytes used to store file's name
+fileManager.getFileSize("./second/toCopyIn/ThatIsCopiedFile");
+```
+
+#### Examples
+
+To see these snippets of code, go to the `FileManagerTest.forDocTest()`
+and try `FileManagerTest@forDocImageTest` where **image** is copied from **OS file system** 
+to the file in **OneFileSystem** and back to another file in **OS specific file system**.
