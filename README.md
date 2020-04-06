@@ -145,5 +145,5 @@ fileManager.getFileSize("./second/toCopyIn/ThatIsCopiedFile");
 #### Examples
 
 To see these snippets of code, go to the `FileManagerTest.forDocTest()`
-and try `FileManagerTest@forDocImageTest` where **image** is copied from **OS file system** 
+and try `FileManagerTest.forDocImageTest` where **image** is copied from **OS file system** 
 to the file in **OneFileSystem** and back to another file in **OS specific file system**.
