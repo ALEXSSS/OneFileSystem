@@ -302,14 +302,6 @@ public class SegmentAllocatorService {
         return initialOffset;
     }
 
-    public int getCapacity() {
-        return capacity;
-    }
-
-    public int getPageSize() {
-        return pageSize;
-    }
-
     private long getDataOffset(long segment) {
         return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * pageSize;
     }

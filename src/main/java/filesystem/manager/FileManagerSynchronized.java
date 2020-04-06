@@ -13,19 +13,18 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * That is trial to make it synchronised properly, it would take a lot of time to test, if would choose
- * another approach, like fine-grained locking by inode, taking lock from the map of locks.
+ * That is attempt to make FileManager synchronised properly.
  * <p>
- * Due to lack of time and a huge desire to implement something like that, I needed to say that.
+ * It would take a lot of time to test it, if I would choose fine-grained approach,
+ * by that I mean locking by inode num, taking lock from the map of locks.
+ * Due to lack of time and a huge desire to implement something like that, I need to mention that this seems to be possible.
  * <p>
- * However, here I'll write solution based on a simple idea of synchronisation of everything.
- * As we have memory guarantees on acquiring and releasing of locks, if I have
- * properly written program without locks, it will be "quite" correct with them for concurrent environment.
- *
+ * However, here I'll write simpler solution based on a straight-forward idea of synchronisation of everything (a little smarter).
+ * <p>
  * ReadWriteReentrant lock looks like a perfect match for this, as it practically used when reading
- * outnumbers writing operations, as we have here. As well it would be better to make more fine-grained locking,
+ * outnumbers writing operations, as we have here. Though, as I've said, it would be better to make more fine-grained locking,
  * blocking per inode or directory, but I wouldn't be able to give strong guarantees that it will work properly,
- * taking into account caching operations made.
+ * taking into account caching operations made here.
  */
 public class FileManagerSynchronized implements OneFileSystem {
     private final FileManager fileManager;
