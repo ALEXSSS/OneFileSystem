@@ -26,9 +26,9 @@ public class ByteArrayConverterUtils {
     }
 
 
-    public static byte[] mergeByteArrays(byte[]... arrs) {
+    public static byte[] mergeByteArrays(byte[]... arrays) {
         int size = 0;
-        for (byte[] value : arrs) {
+        for (byte[] value : arrays) {
             size += value.length;
         }
 
@@ -36,7 +36,7 @@ public class ByteArrayConverterUtils {
 
         ByteBuffer buff = ByteBuffer.wrap(result);
 
-        for (byte[] bytes : arrs) {
+        for (byte[] bytes : arrays) {
             buff.put(bytes);
         }
 
@@ -47,5 +47,4 @@ public class ByteArrayConverterUtils {
     public static byte[] stringToByteArray(String s) {
         return mergeByteArrays(getByteArrayFromInt(s.length()), s.getBytes());
     }
-
 }

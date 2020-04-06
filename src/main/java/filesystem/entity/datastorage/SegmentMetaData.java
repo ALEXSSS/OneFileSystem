@@ -14,16 +14,16 @@ import java.nio.ByteBuffer;
  * ----------------
  */
 public class SegmentMetaData implements ByteRepresentable {
-    private int numsOfContinuousBlocks;
-    private int nextSegment;
+    private final int numsOfContinuousBlocks;
+    private final int nextSegment;
     private int occupied;
 
     /**
      * Constructor to create segmentMetaData
      *
-     * @param  numsOfContinuousBlocks how many(blocks == pages) will be in the segment
-     * @param  nextSegment next start of segment
-     * @param  occupied num of occupied bytes in this segment
+     * @param numsOfContinuousBlocks how many(blocks == pages) will be in the segment
+     * @param nextSegment            next start of segment
+     * @param occupied               num of occupied bytes in this segment
      */
     public SegmentMetaData(int numsOfContinuousBlocks, int nextSegment, int occupied) {
         this.numsOfContinuousBlocks = numsOfContinuousBlocks;
@@ -32,7 +32,7 @@ public class SegmentMetaData implements ByteRepresentable {
     }
 
     /**
-     * @see SegmentMetaData#SegmentMetaData(int, int, int) 
+     * @see SegmentMetaData#SegmentMetaData(int, int, int)
      */
     public static SegmentMetaData of(int numsOfContinuousBlocks, int nextSegment, int occupied) {
         return new SegmentMetaData(numsOfContinuousBlocks, nextSegment, occupied);

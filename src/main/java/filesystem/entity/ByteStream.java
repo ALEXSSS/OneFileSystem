@@ -13,6 +13,7 @@ public interface ByteStream {
     /**
      * Copies returned num of bytes to provided byte array.
      * Method changes internal pointer of stream.
+     *
      * @param arr to copy bytes in
      * @return how many bytes were copied
      */

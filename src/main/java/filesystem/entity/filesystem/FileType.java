@@ -10,7 +10,7 @@ public enum FileType {
 
     private final int value;
 
-    FileType(int value){
+    FileType(int value) {
         this.value = value;
     }
 
@@ -19,14 +19,17 @@ public enum FileType {
     }
 
     public static FileType getFileTypeFromInt(int fileType) {
-        switch (fileType){
-            case 0: return DIRECTORY;
-            case 1: return FILE;
-            default: throw new IllegalArgumentException("Only two file types are available!");
+        switch (fileType) {
+            case 0:
+                return DIRECTORY;
+            case 1:
+                return FILE;
+            default:
+                throw new IllegalArgumentException("Only two file types are available!");
         }
     }
 
-    public int FileTypeToInt(FileType type){
+    public int FileTypeToInt(FileType type) {
         return type.getValue();
     }
 }

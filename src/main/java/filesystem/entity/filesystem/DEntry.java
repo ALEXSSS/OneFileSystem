@@ -12,8 +12,8 @@ import static filesystem.utils.ByteArrayConverterUtils.mergeByteArrays;
 
 @IgnoreFromMemoryChecking
 public class DEntry implements ByteRepresentable {
-    private String name;
-    private int inode;
+    private final String name;
+    private final int inode;
 
 
     public DEntry(String name, int inode) {
@@ -21,11 +21,11 @@ public class DEntry implements ByteRepresentable {
         this.inode = inode;
     }
 
-    public static DEntry of(ByteStream byteStream){
+    public static DEntry of(ByteStream byteStream) {
         return new DEntry(byteStream.getString(), byteStream.getInt());
     }
 
-    public static DEntry of(Entry<String, Integer> entry){
+    public static DEntry of(Entry<String, Integer> entry) {
         return new DEntry(entry.getKey(), entry.getValue());
     }
 
@@ -37,12 +37,12 @@ public class DEntry implements ByteRepresentable {
         return inode;
     }
 
-    public static DEntry of(String name, int inode){
+    public static DEntry of(String name, int inode) {
         return new DEntry(name, inode);
     }
 
     @Override
-    public byte[] toByteArray(){
+    public byte[] toByteArray() {
         byte[] sizeOfNameBytes = ByteArrayConverterUtils.getByteArrayFromInt(name.length());
         byte[] nameBytes = name.getBytes();
         byte[] numOfDEntriesBytes = ByteArrayConverterUtils.getByteArrayFromInt(inode);
@@ -50,7 +50,7 @@ public class DEntry implements ByteRepresentable {
         return mergeByteArrays(sizeOfNameBytes, nameBytes, numOfDEntriesBytes);
     }
 
-    public boolean isRoot(){
+    public boolean isRoot() {
         return inode == -1;
     }
 

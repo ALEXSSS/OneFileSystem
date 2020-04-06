@@ -21,10 +21,11 @@ import static org.junit.Assert.assertEquals;
 
 public class SegmentAllocatorServiceTest {
 
-    private static int DEFAULT_SIZE_OF_PAGE = 4096;
-    private static int NUM_OF_PAGES = 200;
+    private final static int DEFAULT_SIZE_OF_PAGE = 4096;
+    private final static int NUM_OF_PAGES = 200;
+    private final static int INITIAL_OFFSET = 100;
+
     private static SegmentAllocatorService segmentAllocatorService;
-    private static int INITIAL_OFFSET = 100;
     private static File originalFile;
 
     @Before

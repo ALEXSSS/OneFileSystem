@@ -10,7 +10,7 @@ import static filesystem.utils.ByteArrayConverterUtils.stringToByteArray;
  */
 @IgnoreFromMemoryChecking
 public class BaseFileInf implements ByteRepresentable {
-    protected String name;
+    protected final String name;
 
     public BaseFileInf(String name) {
         this.name = name;

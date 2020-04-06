@@ -3,6 +3,7 @@ package filesystem.manager;
 import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.exception.FileManagerException;
+import filesystem.entity.filesystem.BaseFileInf;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -333,6 +334,54 @@ public class FileManagerTest {
 
         stream.getArr(toReadIn);
         assertArrayEquals("Data checking", toReadIn, data);
+    }
+
+
+    @Test
+    public void getFileSizeTest() {
+        byte[] data = new byte[5000];
+
+        String firstFileName = "someFile";
+        String secondFileName = "anotherFile";
+        int nameSizeFirst = BaseFileInf.of(firstFileName).toByteArray().length;
+        int nameSizeSecond = BaseFileInf.of(secondFileName).toByteArray().length;
+
+        fileManager.createDirectory("", "first");
+        fileManager.createDirectory("first", "second");
+        fileManager.createDirectory("first/second", "third");
+        fileManager.createFile("first/second/third/", firstFileName);
+        fileManager.writeToFile("first/second/third/" + firstFileName, data);
+
+        assertEquals(data.length + nameSizeFirst, fileManager.getFileSize("first/second/third/" + firstFileName));
+
+        fileManager.createFile("first/", secondFileName);
+        fileManager.writeToFile("./first/" + secondFileName, data);
+
+        assertEquals(2 * data.length + nameSizeFirst + nameSizeSecond, fileManager.getFileSize("first"));
+        assertEquals(2 * data.length + nameSizeFirst + nameSizeSecond, fileManager.getFileSize(""));
+        assertEquals(2 * data.length + nameSizeFirst + nameSizeSecond, fileManager.getFileSize("."));
+    }
+
+    @Test
+    public void createCyclicReferenceOnFileTest() {
+        fileManager.createDirectory("", "first");
+        fileManager.createDirectory("first", "second");
+        fileManager.createDirectory("first/second", "third");
+        fileManager.createFile("first/", "someFile");
+        fileManager.createHardLink("first/someFile", "/first/second/third/", "cyclicRefCorrect");
+    }
+
+    @Test(expected = FileManagerException.class)
+    public void getFileSizeOfNotExistedFileTest() {
+        fileManager.getFileSize("first");
+    }
+
+    @Test(expected = FileManagerException.class)
+    public void createCyclicReferenceOnDirectoryTest() {
+        fileManager.createDirectory("", "first");
+        fileManager.createDirectory("first", "second");
+        fileManager.createDirectory("first/second", "third");
+        fileManager.createHardLink("first/second", "/first/second/third/", "cyclicRefCorrect");
     }
 
     @Test(expected = FileManagerException.class)

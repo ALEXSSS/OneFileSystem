@@ -6,15 +6,15 @@ package filesystem.entity.datastorage;
  * Where each segment (1,2 ... last) are read as byte arrays (possibly splitted for memory efficiency)
  */
 public class SegmentReadResult {
-    byte[] arr;
-    int nextSegment;
-    int positionInSegment;
+    private final byte[] arr;
+    private final int nextSegment;
+    private final int positionInSegment;
 
     /**
      * Constructor for SegmentReadResult
      *
-     * @param arr         byte array of current segment
-     * @param nextSegment nextSegment to continue reading from
+     * @param arr               byte array of current segment
+     * @param nextSegment       nextSegment to continue reading from
      * @param positionInSegment to start read in nextSegment
      */
     public SegmentReadResult(byte[] arr, int nextSegment, int positionInSegment) {
@@ -35,7 +35,7 @@ public class SegmentReadResult {
         return nextSegment;
     }
 
-    public int getPositionInSegment(){
+    public int getPositionInSegment() {
         return positionInSegment;
     }
 }

@@ -11,28 +11,39 @@ import java.io.RandomAccessFile;
  * File system configuration, where all needed settings have to be filled before sending to FileManager
  */
 public class FileSystemConfiguration {
-    private long size; // size of file system
-    private int pageSize; // pageSize (and default segment size)
-    private int numOfInodes; // regulates how many files could be created ( will be initially filled in super-block)
-    private File file; // file to put file system in
+    private final long size; // size of file system
+    private final int pageSize; // pageSize (and default segment size)
+    private final int numOfInodes; // regulates how many files could be created ( will be initially filled in super-block)
+    private final File file; // file to put file system in
 
 
     /**
      * Constructor creates configuration object for file system
      *
-     * @param  size size of file system
-     * @param  pageSize pageSize (and default segment size)
-     * @param  numOfInodes regulates how many files could be created ( will be initially filled in super-block)
-     * @param  file file to put file system in
+     * @param size        size of file system
+     * @param pageSize    pageSize (and default segment size)
+     * @param numOfInodes regulates how many files could be created ( will be initially filled in super-block)
+     * @param file        file to put file system in
      * @throws OneFileSystemException if file cannot be modified
      */
-    public FileSystemConfiguration(long size, int pageSize, int numOfInodes, File file, boolean newFile) {
+    public FileSystemConfiguration(
+            long size, int pageSize, int numOfInodes, File file, boolean newFile
+    ) {
+        if (size <= pageSize * numOfInodes){
+            throw new IllegalArgumentException("File size too small!");
+        }
+        if (pageSize < 1024) {
+            throw new IllegalArgumentException("File page too small!");
+        }
+        if (numOfInodes <= 1) {
+            throw new IllegalArgumentException("Num of inodes too small!");
+        }
         if (newFile) {
             try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
                 file.createNewFile();
                 randomAccessFile.setLength(size);
             } catch (IOException e) {
-                throw new OneFileSystemException("File system configuration failed, due to file modification!", e);
+                throw new IllegalArgumentException("File system configuration failed, due to file modification!", e);
             }
         }
         this.size = size;
@@ -41,7 +52,9 @@ public class FileSystemConfiguration {
         this.file = file;
     }
 
-    public static FileSystemConfiguration of(long size, int pageSize, int numOfInodes, File file, boolean newFile) {
+    public static FileSystemConfiguration of(
+            long size, int pageSize, int numOfInodes, File file, boolean newFile
+    ) {
         return new FileSystemConfiguration(size, pageSize, numOfInodes, file, newFile);
     }
 

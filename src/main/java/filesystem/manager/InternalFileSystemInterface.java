@@ -75,6 +75,7 @@ public interface InternalFileSystemInterface {
      * @param pathToFile     path to file
      * @param whereToAdd     directory to add hardlink
      * @param nameOfHardLink name of this hardlink
+     * @throws filesystem.entity.exception.FileManagerException if cyclic reference is detected
      */
     void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink);
 
@@ -108,10 +109,10 @@ public interface InternalFileSystemInterface {
     long getSize();
 
     /**
-     * For directories method will traverse file structure using dfs algorithm, ignoring cycling dependencies.
+     * For directories method will traverse file structure using dfs algorithm.
      *
      * @param pathToFile path to file to evaluate size of
      * @return size of file
      */
-//    long getFileSize(String pathToFile);
+    long getFileSize(String pathToFile);
 }

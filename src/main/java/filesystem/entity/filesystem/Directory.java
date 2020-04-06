@@ -14,8 +14,8 @@ import static filesystem.utils.ByteArrayConverterUtils.stringToByteArray;
 
 @IgnoreFromMemoryChecking
 public class Directory extends BaseFileInf implements ByteRepresentable {
-    private DEntry parent;
-    private List<DEntry> dEntries;
+    private final DEntry parent;
+    private final List<DEntry> dEntries;
 
 
     public Directory(String name, DEntry parent, Collection<DEntry> dEntries) {

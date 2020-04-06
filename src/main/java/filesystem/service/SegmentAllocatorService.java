@@ -30,13 +30,13 @@ import static java.util.Comparator.comparingInt;
  * to allocate and free pages.
  */
 public class SegmentAllocatorService {
-    private long initialOffset; // equals to super block size
-    private int capacity;
-    private int pageSize;
-    private int remainingCapacity;
-    private NavigableSet<Segment> freeSegments;
-    private NavigableSet<Segment> freeSegmentsPosition;
-    private File file;
+    private final long initialOffset; // equals to super block size
+    private final int capacity;
+    private final int pageSize;
+    private volatile int remainingCapacity;
+    private final NavigableSet<Segment> freeSegments;
+    private final NavigableSet<Segment> freeSegmentsPosition;
+    private final File file;
 
 
     /**
@@ -50,7 +50,8 @@ public class SegmentAllocatorService {
         this.pageSize = pageSize;
         this.remainingCapacity = capacityInPages;
         this.initialOffset = initialOffset;
-        if (!file.exists()) throw new IllegalArgumentException("File doesn't exist!");
+        if (!file.exists())
+            throw new IllegalArgumentException("File doesn't exist!");
         this.file = file;
 
         freeSegments = new TreeSet<>();
@@ -82,7 +83,9 @@ public class SegmentAllocatorService {
         if (fitWithinSegment != null) {
             removeFromSegments(fitWithinSegment);
             writeMetaDataToSegment(fitWithinSegment.getStart(), amountOfSegments, -1);
-            Segment partToReturn = Segment.of(fitWithinSegment.getStart() + amountOfSegments, fitWithinSegment.getEnd());
+            Segment partToReturn = Segment.of(
+                    fitWithinSegment.getStart() + amountOfSegments, fitWithinSegment.getEnd()
+            );
             if (partToReturn.getSize() != 0) {
                 addToSegments(partToReturn);
             }
@@ -114,7 +117,9 @@ public class SegmentAllocatorService {
 
             for (int i = 0; i < availableSegments.size() - 1; i++) {
                 Segment segment = availableSegments.get(i);
-                writeMetaDataToSegment(segment.getStart(), segment.getSize(), availableSegments.get(i + 1).getSize());
+                writeMetaDataToSegment(
+                        segment.getStart(), segment.getSize(), availableSegments.get(i + 1).getSize()
+                );
             }
 
             Segment last = availableSegments.get(availableSegments.size() - 1);
@@ -155,7 +160,9 @@ public class SegmentAllocatorService {
                     metaData.setOccupied(metaData.getOccupied() + possibleToWrite);
                     writeMetaDataToSegment(currentSegment, metaData);
                 } catch (IOException e) {
-                    throw new SegmentAllocatorException("File writing went wrong during writing to the segment!", e);
+                    throw new SegmentAllocatorException(
+                            "File writing went wrong during writing to the segment!", e
+                    );
                 }
 
                 cursorInData += possibleToWrite;
@@ -192,7 +199,9 @@ public class SegmentAllocatorService {
         SegmentMetaData segmentMetaData;
         do {
             segmentMetaData = readSegmentMetaData(currSegment);
-            releasedSegments.add(Segment.of(currSegment, currSegment + segmentMetaData.getNumsOfContinuousBlocks() - 1));
+            releasedSegments.add(
+                    Segment.of(currSegment, currSegment + segmentMetaData.getNumsOfContinuousBlocks() - 1)
+            );
             currSegment = segmentMetaData.getNextSegment();
         } while (segmentMetaData.isContinued());
 
@@ -269,7 +278,9 @@ public class SegmentAllocatorService {
             file.seek(getDataOffset(segment));
             file.readFully(result);
         } catch (IOException e) {
-            throw new SegmentAllocatorException("File reading went wrong during reading of segments' data!", e);
+            throw new SegmentAllocatorException(
+                    "File reading went wrong during reading of segments' data!", e
+            );
         }
 
         return SegmentReadResult.of(result, segmentMetaData.getNextSegment(), 0);
@@ -303,10 +314,15 @@ public class SegmentAllocatorService {
         return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * pageSize;
     }
 
-    private SegmentMetaData expandSegment(long segment, int neededAmountOfBlocks, SegmentMetaData metaData) {
+    private SegmentMetaData expandSegment(
+            long segment, int neededAmountOfBlocks, SegmentMetaData metaData
+    ) {
         int next = allocateSegments(neededAmountOfBlocks);
-        SegmentMetaData newMetaData = new SegmentMetaData(metaData.getNumsOfContinuousBlocks(), next,
-                metaData.getNumsOfContinuousBlocks() * pageSize - SegmentMetaData.getSizeOfStructure());
+        SegmentMetaData newMetaData = new SegmentMetaData(
+                metaData.getNumsOfContinuousBlocks(),
+                next,
+                metaData.getNumsOfContinuousBlocks() * pageSize - SegmentMetaData.getSizeOfStructure()
+        );
         writeMetaDataToSegment(segment, newMetaData);
         return newMetaData;
     }
@@ -326,7 +342,8 @@ public class SegmentAllocatorService {
     private int neededBytesToSegments(long numBytes) {
         int amount = (int) ceil(numBytes / (double) pageSize);
 
-        if (amount * pageSize - SegmentMetaData.getSizeOfStructure() >= numBytes) {
+        int haveToBeAllocated = amount * pageSize - SegmentMetaData.getSizeOfStructure();
+        if (haveToBeAllocated >= numBytes) {
             return amount;
         }
         return amount + 1;
@@ -335,7 +352,6 @@ public class SegmentAllocatorService {
     private SegmentMetaData readSegmentMetaData(long segment) {
         try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
             file.seek(getMetaDataOffset(segment));
-
             return SegmentMetaData.of(file.readInt(), file.readInt(), file.readInt());
         } catch (IOException e) {
             throw new SegmentAllocatorException("File reading went wrong!", e);
@@ -349,7 +365,9 @@ public class SegmentAllocatorService {
             file.seek(getMetaDataOffset(segment));
             file.write(metaBytes);
         } catch (IOException e) {
-            throw new SegmentAllocatorException("File writing went wrong during writing of meta data to the segment!", e);
+            throw new SegmentAllocatorException(
+                    "File writing went wrong during writing of meta data to the segment!", e
+            );
         }
     }
 
@@ -369,14 +387,14 @@ public class SegmentAllocatorService {
 
         public ByteStreamBasedOnSegments(int segment, SegmentAllocatorService segmentAllocatorService) {
             this.segmentAllocatorService = segmentAllocatorService;
-
             segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(segment, 0);
             currPosition = 0;
         }
 
         @Override
         public boolean hasNext() {
-            return segmentReadResult.getArr().length != currPosition || segmentReadResult.getNextSegment() != -1;
+            return segmentReadResult.getArr().length != currPosition
+                    || segmentReadResult.getNextSegment() != -1;
         }
 
         @Override
@@ -387,10 +405,10 @@ public class SegmentAllocatorService {
             if (segmentReadResult.getNextSegment() == -1) {
                 throw new IllegalStateException("Cannot read farther!");
             }
-            segmentReadResult = segmentAllocatorService
-                    .readDataFromSegmentInPages(
-                            segmentReadResult.getNextSegment(),
-                            segmentReadResult.getPositionInSegment());
+            segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(
+                    segmentReadResult.getNextSegment(),
+                    segmentReadResult.getPositionInSegment()
+            );
             currPosition = 1;
             return segmentReadResult.getArr()[0];
         }
@@ -402,18 +420,17 @@ public class SegmentAllocatorService {
 
         @Override
         public int getArr(byte[] arr) {
-            int toRead;
             if (currPosition == segmentReadResult.getArr().length) {
-                if (segmentReadResult.getNextSegment() == -1) {
+                if (segmentReadResult.getNextSegment() == -1)
                     throw new IllegalStateException("Cannot read farther!");
-                }
-                segmentReadResult = segmentAllocatorService
-                        .readDataFromSegmentInPages(
-                                segmentReadResult.getNextSegment(),
-                                segmentReadResult.getPositionInSegment());
+
+                segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(
+                        segmentReadResult.getNextSegment(),
+                        segmentReadResult.getPositionInSegment()
+                );
                 currPosition = 0;
             }
-            toRead = min(segmentReadResult.getArr().length - currPosition, arr.length);
+            int toRead = min(segmentReadResult.getArr().length - currPosition, arr.length);
             for (int i = 0; i < toRead; i++) {
                 arr[i] = segmentReadResult.getArr()[currPosition + i];
             }

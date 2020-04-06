@@ -10,16 +10,14 @@ import java.io.OutputStream;
 public interface ExternalFileSystemInterface {
 
     /**
-     *
      * @param pathToFile to file in one-file-system
-     * @param in to copy data from
+     * @param in         to copy data from
      */
     void writeToFileFromInputStream(String pathToFile, InputStream in);
 
     /**
-     *
      * @param pathToFile to file in one-file-system
-     * @param out to copy data in
+     * @param out        to copy data in
      */
     void copyDataFromFileToOutputStream(String pathToFile, OutputStream out);
 }

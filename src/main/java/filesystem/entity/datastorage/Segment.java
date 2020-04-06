@@ -5,14 +5,15 @@ package filesystem.entity.datastorage;
  * The segment to consider for memory allocation (practically some amount of pages of this file system)
  */
 public class Segment implements Comparable<Segment> {
-    private int start;
-    private int end;
+    private final int start;
+    private final int end;
 
     /**
-     * Constructor to create segment (some amount of contiguous pages)
+     * Constructor to create segment (some amount of contiguous pages).
+     * Please, notice that start could be > than end, as there isn't such invariant here!
      *
-     * @param  start initial page of segment (where metaData will be stored)
-     * @param  end last page of segment
+     * @param start initial page of segment (where metaData will be stored)
+     * @param end   last page of segment
      * @see SegmentMetaData
      */
     public Segment(int start, int end) {
