@@ -33,7 +33,7 @@ public class SegmentAllocatorService {
     private final long initialOffset; // equals to super block size
     private final int capacity;
     private final int pageSize;
-    private int remainingCapacity;
+    private int remainingCapacity; // memory publication should be guaranteed by locks acquisitions (otherwise put volatile)
     private final NavigableSet<Segment> freeSegments;
     private final NavigableSet<Segment> freeSegmentsPosition;
     private final File file;
@@ -69,7 +69,9 @@ public class SegmentAllocatorService {
     }
 
     /**
-     * This method tries to allocate sequence of segments and returns the first index from them
+     * This method tries to allocate sequence of segments and returns the first index from them.
+     * Algorithm tries eagerly to allocate segments such way that amountOfSegments will be fit within them,
+     * avoiding unnecessary de-fragmentation.
      *
      * @param amountOfSegments to allocate
      * @return index of first segment in sequence
@@ -335,6 +337,7 @@ public class SegmentAllocatorService {
         int amount = (int) ceil(numBytes / (double) pageSize);
 
         int haveToBeAllocated = amount * pageSize - SegmentMetaData.getSizeOfStructure();
+        
         if (haveToBeAllocated >= numBytes) {
             return amount;
         }
