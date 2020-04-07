@@ -14,7 +14,6 @@ import static filesystem.entity.filesystem.FileType.DIRECTORY;
 import static filesystem.entity.filesystem.FileType.FILE;
 import static filesystem.service.SuperBlockService.getInodeOffsetByIndex;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class SuperBlockServiceTest {
 
@@ -32,8 +31,7 @@ public class SuperBlockServiceTest {
             file.setLength(DEFAULT_SIZE_OF_PAGE * 20);
         }
 
-        superBlockService = new SuperBlockService();
-        superBlockService.initialiseSuperBlock(NUM_OF_INODES, DEFAULT_SIZE_OF_PAGE, originalFile);
+        superBlockService = new SuperBlockService(NUM_OF_INODES, DEFAULT_SIZE_OF_PAGE, originalFile);
 
         originalFile.deleteOnExit();
     }
@@ -43,7 +41,6 @@ public class SuperBlockServiceTest {
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             // check fields
             assertEquals("Error of inodeNumInitialisation!", NUM_OF_INODES, superBlockService.getNumOfInodes());
-            assertTrue("After invocation of initialisation, superBlock should be initialised!", superBlockService.isInitialised());
 
             assertEquals("Super block offset after initialisation",
                     4 + 4 + NUM_OF_INODES * (Inode.getSizeOfStructure() + 1), superBlockService.getSuperBlockOffset());
@@ -89,16 +86,14 @@ public class SuperBlockServiceTest {
             // --------------------------------------------
 
             // reads it again from file
-            SuperBlockService superBlockServiceFromFile = new SuperBlockService();
+            SuperBlockService superBlockServiceFromFile = new SuperBlockService(originalFile);
 
-            superBlockServiceFromFile.initialiseSuperBlockFromFile(originalFile);
-
-            assertEquals("numOfInodes", superBlockService.getNumOfInodes(), NUM_OF_INODES);
-            assertEquals("pageSize", superBlockService.getPageSize(), DEFAULT_SIZE_OF_PAGE);
+            assertEquals("numOfInodes", superBlockServiceFromFile.getNumOfInodes(), NUM_OF_INODES);
+            assertEquals("pageSize", superBlockServiceFromFile.getPageSize(), DEFAULT_SIZE_OF_PAGE);
 
             // try to allocate new inode
             Inode dummyInode = new Inode(13, 113, FILE, 3, 333);
-            int index = superBlockService.acquireInode(dummyInode);
+            int index = superBlockServiceFromFile.acquireInode(dummyInode);
 
             file.seek(getInodeOffsetByIndex(index));
 
@@ -249,12 +244,7 @@ public class SuperBlockServiceTest {
     }
 
     @Test(expected = SuperBlockException.class)
-    public void initialiseSuperBlockTwiceTest() {
-        superBlockService.initialiseSuperBlock(NUM_OF_INODES, DEFAULT_SIZE_OF_PAGE, originalFile);
-    }
-
-    @Test(expected = SuperBlockException.class)
     public void initialiseSuperBlockWithSmallAmountOfInodesTest() {
-        superBlockService.initialiseSuperBlock(1, DEFAULT_SIZE_OF_PAGE, originalFile);
+        new SuperBlockService(1, DEFAULT_SIZE_OF_PAGE, originalFile);
     }
 }

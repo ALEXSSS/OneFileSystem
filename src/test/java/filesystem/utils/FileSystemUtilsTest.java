@@ -61,4 +61,11 @@ public class FileSystemUtilsTest {
         assertTrue(FileSystemUtils.checkThatDirectoryAncestor("././first/././", "first/second/./third"));
         assertTrue(FileSystemUtils.checkThatDirectoryAncestor("", "."));
     }
+
+    @Test
+    public void cleanFileNameTest() {
+        assertEquals("first", FileSystemUtils.cleanFileName("/first"));
+        assertEquals("first", FileSystemUtils.cleanFileName("/first/"));
+        assertEquals("first", FileSystemUtils.cleanFileName("first"));
+    }
 }

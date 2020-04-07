@@ -34,20 +34,17 @@ import static filesystem.entity.filesystem.FileType.FILE;
  * ------------------------
  */
 public class SuperBlockService {
-    private boolean initialised;
-    private int numOfInodes;
-    private File file;
-    private Queue<Integer> freeInodes;
-    private int pageSize;
+    private final int numOfInodes;
+    private final File file;
+    private final Queue<Integer> freeInodes;
+    private final int pageSize;
 
     /**
      * @param numOfInodes the amount of inodes
      * @param pageSize    size of page (as well the minimum size of segment)
      * @param file        file in which build superBlock in
      */
-    public void initialiseSuperBlock(int numOfInodes, int pageSize, File file) {
-        if (initialised)
-            throw new SuperBlockException("SuperBlock is already initialised!");
+    public SuperBlockService(int numOfInodes, int pageSize, File file) {
         if (!file.exists())
             throw new SuperBlockException("File doesn't exist!");
         if (numOfInodes <= 1)
@@ -73,7 +70,6 @@ public class SuperBlockService {
         this.file = file;
         this.pageSize = pageSize;
         this.numOfInodes = numOfInodes;
-        initialised = true;
     }
 
     /**
@@ -82,9 +78,7 @@ public class SuperBlockService {
      *
      * @param file file with initialised superBlock in it
      */
-    public void initialiseSuperBlockFromFile(File file) {
-        if (initialised)
-            throw new SuperBlockException("SuperBlock is already initialised!");
+    public SuperBlockService(File file) {
         if (!file.exists())
             throw new SuperBlockException("File doesn't exist!");
 
@@ -107,7 +101,6 @@ public class SuperBlockService {
             throw new SuperBlockException("File writing went wrong during initialisation!", e);
         }
         this.file = file;
-        initialised = true;
     }
 
     /**
@@ -115,12 +108,9 @@ public class SuperBlockService {
      *
      * @param inode Inode class instance
      * @return inodeNum (or index) of acquired inode
-     * @throws SuperBlockException if superBlock wasn't initialised yet or there isn't free inode
      * @see Inode
      */
     public int acquireInode(Inode inode) {
-        if (!initialised)
-            throw new SuperBlockException("SuperBlock isn't initialised yet!");
         if (freeInodes.isEmpty())
             throw new SuperBlockException("All inodes are taken!");
 
@@ -145,8 +135,6 @@ public class SuperBlockService {
      * @see Inode
      */
     public void updateInode(int inodeNum, Inode inode) {
-        if (!initialised)
-            throw new SuperBlockException("SuperBlock isn't initialised yet!");
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
 
@@ -168,8 +156,6 @@ public class SuperBlockService {
      * @return Inode class instance under given index
      */
     public Inode readInode(int inodeNum) {
-        if (!initialised)
-            throw new SuperBlockException("SuperBlock isn't initialised yet!");
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
         try (RandomAccessFile rFile = new RandomAccessFile(file, "rw")) {
@@ -189,8 +175,6 @@ public class SuperBlockService {
      * @param inodeNum index of occupied inode
      */
     public void removeInode(int inodeNum) {
-        if (!initialised)
-            throw new SuperBlockException("SuperBlock isn't initialised yet!");
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
 
@@ -212,10 +196,6 @@ public class SuperBlockService {
 
     public long getSuperBlockOffset() {
         return numOfInodes * (Inode.getSizeOfStructure() + 1) + 4 + 4;
-    }
-
-    public boolean isInitialised() {
-        return initialised;
     }
 
     public int getNumOfInodes() {

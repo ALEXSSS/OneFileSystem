@@ -113,6 +113,41 @@ public class FileManagerTest {
         assertEquals("Memory leak", initialSize, fileManager.getSizeInPages());
     }
 
+    @Test
+    public void allocateComplexFileTree() throws IOException {
+        File file = File.createTempFile("test2", "test");
+        FileSystemConfiguration fileSystemConfiguration = FileSystemConfiguration.of(4096 * 4096 * 100, 1024, 1111, file, true);
+        FileManager newFileManager = new FileManager(fileSystemConfiguration);
+
+        long initialSize = newFileManager.getSizeInPages();
+        for (int i = 0; i < 10; i++) {
+            StringBuilder startDirectory = new StringBuilder("dir" + i);
+            newFileManager.createDirectory(".", startDirectory.toString());
+            for (int j = 0; j < 10; j++) {
+                String newDirectory = "/dir" + i + "" + j;
+                newFileManager.createDirectory("./" + startDirectory, newDirectory);
+                for (int k = 0; k < 10; k++) {
+                    newFileManager.createFile("./" + startDirectory, "file" + k, k * 1024);
+                    newFileManager.writeToFile("./" + startDirectory + "/" + "file" + k, new byte[]{1,2,3,4,5});
+                }
+                startDirectory.append(newDirectory);
+            }
+        }
+
+        newFileManager.removeFile("./dir0");
+        newFileManager.removeFile("./dir1");
+        newFileManager.removeFile("./dir2");
+        newFileManager.removeFile("./dir3");
+        newFileManager.removeFile("./dir4");
+        newFileManager.removeFile("./dir5");
+        newFileManager.removeFile("./dir6");
+        newFileManager.removeFile("./dir7");
+        newFileManager.removeFile("./dir8");
+        newFileManager.removeFile("./dir9");
+
+        assertEquals("Memory Leak", newFileManager.getSizeInPages(), initialSize);
+    }
+
 
     @Test(expected = FileManagerException.class)
     public void fileTreeCreationTest() {

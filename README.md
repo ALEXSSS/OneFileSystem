@@ -2,25 +2,35 @@
 
 BUILD INFORMATION:
 [![Build Status](https://travis-ci.com/ALEXSSS/OneFileSystem.svg?branch=master)](https://travis-ci.com/ALEXSSS/OneFileSystem)
+##
+
+#### What I would want to do next:
+1) add soft link support
+2) add fine-grained locking mechanism instead of ReadWriteReentrantLock
+3) add functionality to run de-fragmentation
+4) write more tests 
+5) add CLI interface
 
 ## Description
 
 #### Glossary of OneFileSystem
 
-Page - the minimum allocated amount of memory (for example 4096 bytes).
+_**Page**_ - the minimum allocated amount of memory (for example 4096 bytes).
 
-Segment - 1 or more contiguous pages.
+_**Segment**_ - 1 or more contiguous pages.
+
+--------------------------------
 
 #### SuperBlock
 ![GitHub Logo](./doc/superblock.png)
 
 SuperBlock is some amount of **inodes** which have following properties:
 
-1) segment - start page where data is stored (pointing to the start of segment sequence)
+1) segment - start page where data is stored (pointing to the start of the segment's sequence)
 2) size - size of stored data
 3) counter - counter of hardlinks
 4) fileType - only File and Directory are supported
-5) lastSegment - pointer to the last segment in the segment sequence
+5) lastSegment - pointer to the last segment in the segment's sequence
 
 #### Storage
 
@@ -33,6 +43,7 @@ splitted segments for internal representation and will make them free again.
 FileManager will use both **storage** and **superBlock** services to keep track of allocated segments, putting data inside and emulating
 commonly used file abstractions like file, directory, hardlink.
 
+----------------------
 #### How to use?
 
 Initialise FileManager 
@@ -55,7 +66,7 @@ fileManager.createDirectory("/first", "fifth"); // will create fifth directory i
 fileManager.createFile("./first/fifth", "someFile"); // will create file in directory /first/fifth with name someFile
 ```
 
-Or you can create hardlink (throwing exception if you truing make cyclic hardlink)
+Or you can create hardlink (throwing exception if you trying make cyclic hardlink)
 
 ```
 // it will create hardlink on file ./first/fifth in directory second with name fifthHardLink
@@ -71,7 +82,7 @@ fileManager.getFilesInDirectory("./first");
 fileManager.getFilesInDirectory("./first", true);
 ```
 
-Write to the file from InputStream and read from OutputStream
+Write to the file from InputStream and read from OutputStream _(see example of the image saving below)_
 
 ```
 // you can use version of this method with size of data specified, as it more effective for big files
@@ -107,7 +118,7 @@ To remove file simply write
 ```
 // remove file
 fileManager.removeFile("./anotherFile");
-// or whole directory
+// or whole directory (it will remove all files inside)
 fileManager.removeFile("./second");
 ```
 
@@ -139,11 +150,12 @@ You can get file size
 
 ```
 // to get size of file, but remember that first bytes used to store file's name
+// for directories it will return accumullated size of all files inside (ignoring repetiotins due to hardlinks)
 fileManager.getFileSize("./second/toCopyIn/ThatIsCopiedFile");
 ```
 
 #### Examples
 
 To see these snippets of code, go to the `FileManagerTest.forDocTest()`
-and try `FileManagerTest.forDocImageTest` where **image** is copied from **OS file system** 
+and try `FileManagerTest.forDocImageTest()` where **image** is copied from **OS file system** 
 to the file in **OneFileSystem** and back to another file in **OS specific file system**.

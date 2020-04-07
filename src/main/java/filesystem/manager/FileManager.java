@@ -22,6 +22,7 @@ import static filesystem.entity.filesystem.FileType.DIRECTORY;
 import static filesystem.entity.filesystem.FileType.FILE;
 import static filesystem.utils.FileSystemUtils.addToPath;
 import static filesystem.utils.FileSystemUtils.checkThatDirectoryAncestor;
+import static filesystem.utils.FileSystemUtils.cleanFileName;
 import static filesystem.utils.FileSystemUtils.getFileNameByPath;
 import static filesystem.utils.FileSystemUtils.getFileParent;
 import static filesystem.utils.FileSystemUtils.pathToSteps;
@@ -48,8 +49,7 @@ public class FileManager implements OneFileSystem {
      */
     public FileManager(FileSystemConfiguration fileSystemConfiguration) {
         this.fileSystemConfiguration = fileSystemConfiguration;
-        superBlockService = new SuperBlockService();
-        superBlockService.initialiseSuperBlock(
+        superBlockService = new SuperBlockService(
                 fileSystemConfiguration.getNumOfInodes(),
                 fileSystemConfiguration.getPageSize(),
                 fileSystemConfiguration.getFile()
@@ -72,8 +72,7 @@ public class FileManager implements OneFileSystem {
      * @param file with already initialised file system
      */
     public FileManager(File file) {
-        superBlockService = new SuperBlockService();
-        superBlockService.initialiseSuperBlockFromFile(file);
+        superBlockService = new SuperBlockService(file);
 
         fileSystemConfiguration = FileSystemConfiguration.of(
                 file.getTotalSpace(),
@@ -241,6 +240,7 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createDirectory(String pathToFileParent, String fileName) {
+        fileName = cleanFileName(fileName);
         checkFileName(fileName);
         int parentInode = getFileInodeByPath(pathToFileParent);
         Directory newDirectory = new Directory(fileName, DEntry.of("..", parentInode), emptyList());
@@ -256,6 +256,7 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createFile(String pathToFileParent, String fileName, long size) {
+        fileName = cleanFileName(fileName);
         checkFileName(fileName);
         int fileInodeNum = allocateNewBaseFileInf(size, fileName);
         addDEntryToDirectory(getFileInodeByPath(pathToFileParent), DEntry.of(fileName, fileInodeNum));
@@ -278,6 +279,7 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink) {
+        nameOfHardLink = cleanFileName(nameOfHardLink);
         checkFileName(nameOfHardLink);
         if (checkCyclicReferences(pathToFile, whereToAdd)) {
             throw new FileManagerException("Cyclic reference creation!");
@@ -298,6 +300,7 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void copyFileToDirectory(String pathToFile, String whereToCopy, String withName) {
+        withName = cleanFileName(withName);
         int inodeNum = getFileInodeByPath(pathToFile);
         Inode fileInode = superBlockService.readInode(inodeNum);
 
@@ -354,6 +357,7 @@ public class FileManager implements OneFileSystem {
     }
 
     // some useful methods --------------------------------------------------------------------------
+
     private long getFileSize(int inodeNum, Set<Integer> consideredInodes, long accumulated) {
         if (consideredInodes.contains(inodeNum)) {
             return accumulated;
@@ -519,7 +523,7 @@ public class FileManager implements OneFileSystem {
         }
 
         String lastStep = steps.get(steps.size() - 1);
-        if (lastStep.equals("")) {
+        if (lastStep.isEmpty()) {
             return curr;
         }
         int neededFile = curDirectory.getdEntries().indexOf(DEntry.of(lastStep, 0));

@@ -48,4 +48,8 @@ public class FileSystemUtils {
 
         return pathToCheckFormatted.contains(ancestorFormatted);
     }
+
+    public static String cleanFileName(String fileName){
+        return fileName.replace("/","");
+    }
 }

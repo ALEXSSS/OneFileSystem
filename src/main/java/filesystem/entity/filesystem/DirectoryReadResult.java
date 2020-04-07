@@ -44,4 +44,13 @@ public class DirectoryReadResult {
     public int hashCode() {
         return Objects.hash(name, type, size);
     }
+
+    @Override
+    public String toString() {
+        return "DirectoryReadResult{" +
+                "name='" + name + '\'' +
+                ", type=" + type +
+                ", size=" + size +
+                '}';
+    }
 }
