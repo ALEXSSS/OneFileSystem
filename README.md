@@ -11,6 +11,7 @@ BUILD INFORMATION:
 3) add functionality to run de-fragmentation
 4) write more tests 
 5) add CLI interface
+6) consider usage of fileChannels
 
 ## Description
 
