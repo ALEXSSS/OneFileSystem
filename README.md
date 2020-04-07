@@ -5,6 +5,7 @@ BUILD INFORMATION:
 ##
 
 #### What I would want to do next:
+0) take RandomAccessFiles from pool
 1) add soft link support
 2) add fine-grained locking mechanism instead of ReadWriteReentrantLock
 3) add functionality to run de-fragmentation

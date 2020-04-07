@@ -337,7 +337,7 @@ public class SegmentAllocatorService {
         int amount = (int) ceil(numBytes / (double) pageSize);
 
         int haveToBeAllocated = amount * pageSize - SegmentMetaData.getSizeOfStructure();
-        
+
         if (haveToBeAllocated >= numBytes) {
             return amount;
         }
