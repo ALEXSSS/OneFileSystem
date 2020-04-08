@@ -335,11 +335,7 @@ public class FileManager implements OneFileSystem {
     public void createFile(String pathToFileParent, String fileName, long size) {
         RandomAccessFile file = null;
         try {
-            file = poolOfFiles.take();
-            fileName = cleanFileName(fileName);
-            checkFileName(fileName);
-            int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
-            addDEntryToDirectory(getFileInodeByPath(pathToFileParent, file), DEntry.of(fileName, fileInodeNum), file);
+            createFile(pathToFileParent, fileName, size, file);
         } finally {
             poolOfFiles.put(file);
         }
@@ -385,7 +381,7 @@ public class FileManager implements OneFileSystem {
             int inodeNum = getFileInodeByPath(pathToFile, file);
             Inode fileInode = superBlockService.readInode(inodeNum, file);
 
-            createFile(whereToCopy, withName, fileInode.getSize());
+            createFile(whereToCopy, withName, fileInode.getSize(), file);
 
             int copiedFileInodeNum = getFileInodeByPath(addToPath(whereToCopy, withName), file);
 
@@ -649,6 +645,14 @@ public class FileManager implements OneFileSystem {
         Inode inode = superBlockService.readInode(fileInode, file);
         inode.incrementCounter();
         superBlockService.updateInode(fileInode, inode, file);
+    }
+
+    private void createFile(String pathToFileParent, String fileName, long size, RandomAccessFile file) {
+            file = poolOfFiles.take();
+            fileName = cleanFileName(fileName);
+            checkFileName(fileName);
+            int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
+            addDEntryToDirectory(getFileInodeByPath(pathToFileParent, file), DEntry.of(fileName, fileInodeNum), file);
     }
 
 }
