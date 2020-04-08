@@ -17,6 +17,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,7 +61,16 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getFile()
         );
 
-        poolOfFiles = new SilentBlockingResourcePool<>(fileSystemConfiguration.getConcurrencyLevel());
+        List<RandomAccessFile> files = new ArrayList<>(fileSystemConfiguration.getConcurrencyLevel());
+        for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
+            try {
+                files.add(new RandomAccessFile(fileSystemConfiguration.getFile(), "rw"));
+            } catch (FileNotFoundException e) {
+                throw new FileManagerException("File doesn't exist!", e);
+            }
+        }
+
+        poolOfFiles = new SilentBlockingResourcePool<>(files);
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
         segmentAllocatorService = new SegmentAllocatorService(
@@ -71,13 +81,7 @@ public class FileManager implements OneFileSystem {
         );
 
 
-        for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
-            try {
-                poolOfFiles.put(new RandomAccessFile(fileSystemConfiguration.getFile(), "rw"));
-            } catch (FileNotFoundException e) {
-                throw new FileManagerException("File doesn't exist!", e);
-            }
-        }
+
 
         initialiseRoot();
     }
@@ -109,16 +113,15 @@ public class FileManager implements OneFileSystem {
                 file
         );
 
-        poolOfFiles = new SilentBlockingResourcePool<>(fileSystemConfiguration.getConcurrencyLevel());
-
-
+        List<RandomAccessFile> files = new ArrayList<>(fileSystemConfiguration.getConcurrencyLevel());
         for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
             try {
-                poolOfFiles.put(new RandomAccessFile(file, "rw"));
+                files.add(new RandomAccessFile(fileSystemConfiguration.getFile(), "rw"));
             } catch (FileNotFoundException e) {
                 throw new FileManagerException("File doesn't exist!", e);
             }
         }
+        poolOfFiles = new SilentBlockingResourcePool<>(files);
     }
 
     // external api
