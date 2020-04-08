@@ -573,6 +573,12 @@ public class FileManagerTest {
         fileManager.getFileSize("./second/toCopyIn/ThatIsCopiedFile");
     }
 
+
+    /**
+     * Run it and this test will produce copy of image in the doc directory of the project's root.
+     *
+     * It takes file from os's file system, stores it in oneFileSystem, then reads it and copies back to os's fileSystem
+     */
     @Ignore
     @Test
     public void forDocImageTest() throws IOException {
