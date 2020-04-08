@@ -33,20 +33,20 @@ import static org.junit.Assert.assertThat;
 
 public class FileManagerTest {
 
-    private static int DEFAULT_SIZE_OF_PAGE = 1024;
+    private static int DEFAULT_SIZE_OF_PAGE = 4096;
     private static FileSystemConfiguration fileSystemConfiguration;
     private static FileManager fileManager;
     ClassLoader classLoader = getClass().getClassLoader();
 
     @Before
     public void init() throws IOException {
-        long size = DEFAULT_SIZE_OF_PAGE * 1024 * 1024;
-        File originalFile = new File("test");
+        long size = DEFAULT_SIZE_OF_PAGE * 1024l * 1024l;
+        File originalFile = File.createTempFile("test", "test");
         originalFile.createNewFile();
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             file.setLength(size);
         }
-        fileSystemConfiguration = FileSystemConfiguration.of(size, DEFAULT_SIZE_OF_PAGE, 100, originalFile, true);
+        fileSystemConfiguration = FileSystemConfiguration.of(size, DEFAULT_SIZE_OF_PAGE, 100, originalFile, true, 10);
         fileManager = new FileManager(fileSystemConfiguration);
         originalFile.deleteOnExit();
     }
@@ -116,7 +116,7 @@ public class FileManagerTest {
     @Test
     public void allocateComplexFileTree() throws IOException {
         File file = File.createTempFile("test2", "test");
-        FileSystemConfiguration fileSystemConfiguration = FileSystemConfiguration.of(4096 * 4096 * 100, 1024, 1111, file, true);
+        FileSystemConfiguration fileSystemConfiguration = FileSystemConfiguration.of(4096 * 4096 * 100, 1024, 1111, file, true, 10);
         FileManager newFileManager = new FileManager(fileSystemConfiguration);
 
         long initialSize = newFileManager.getSizeInPages();
@@ -128,7 +128,7 @@ public class FileManagerTest {
                 newFileManager.createDirectory("./" + startDirectory, newDirectory);
                 for (int k = 0; k < 10; k++) {
                     newFileManager.createFile("./" + startDirectory, "file" + k, k * 1024);
-                    newFileManager.writeToFile("./" + startDirectory + "/" + "file" + k, new byte[]{1,2,3,4,5});
+                    newFileManager.writeToFile("./" + startDirectory + "/" + "file" + k, new byte[]{1, 2, 3, 4, 5});
                 }
                 startDirectory.append(newDirectory);
             }
@@ -586,20 +586,5 @@ public class FileManagerTest {
             fileManager.copyDataFromFileToOutputStream("/smallFile", out);
         }
 
-    }
-
-//    @Ignore
-    @Test
-    public void forZipTest() throws IOException {
-        fileManager.createFile(".", "bigFile");
-        // it will copy image in oneFileSystem and back to another file
-        try (InputStream in = classLoader.getResourceAsStream("res.zip");) {
-            fileManager.writeToFileFromInputStream("/bigFile", in);
-        }
-
-        File copiedJpg = new File("./doc/test.zip");
-        try (OutputStream out = new FileOutputStream(copiedJpg)) {
-            fileManager.copyDataFromFileToOutputStream("/bigFile", out);
-        }
     }
 }

@@ -62,10 +62,10 @@ public class SegmentAllocatorService {
     }
 
     /**
-     * @see SegmentAllocatorService#allocateSegments(int)
+     * @see SegmentAllocatorService#allocateSegments(int, RandomAccessFile)
      */
-    public int allocateSegmentsInBytes(long numBytes) {
-        return allocateSegments(neededBytesToSegments(numBytes));
+    public int allocateSegmentsInBytes(long numBytes, RandomAccessFile file) {
+        return allocateSegments(neededBytesToSegments(numBytes), file);
     }
 
     /**
@@ -76,7 +76,7 @@ public class SegmentAllocatorService {
      * @param amountOfSegments to allocate
      * @return index of first segment in sequence
      */
-    public int allocateSegments(int amountOfSegments) {
+    public int allocateSegments(int amountOfSegments, RandomAccessFile file) {
         if (remainingCapacity < amountOfSegments)
             throw new SegmentAllocatorException("File doesn't have enough free memory!");
 
@@ -84,7 +84,7 @@ public class SegmentAllocatorService {
         int answer;
         if (fitWithinSegment != null) {
             removeFromSegments(fitWithinSegment);
-            writeMetaDataToSegment(fitWithinSegment.getStart(), amountOfSegments, -1);
+            writeMetaDataToSegment(fitWithinSegment.getStart(), amountOfSegments, -1, file);
             Segment partToReturn = Segment.of(
                     fitWithinSegment.getStart() + amountOfSegments, fitWithinSegment.getEnd()
             );
@@ -120,12 +120,12 @@ public class SegmentAllocatorService {
             for (int i = 0; i < availableSegments.size() - 1; i++) {
                 Segment segment = availableSegments.get(i);
                 writeMetaDataToSegment(
-                        segment.getStart(), segment.getSize(), availableSegments.get(i + 1).getSize()
+                        segment.getStart(), segment.getSize(), availableSegments.get(i + 1).getSize(), file
                 );
             }
 
             Segment last = availableSegments.get(availableSegments.size() - 1);
-            writeMetaDataToSegment(last.getStart(), last.getSize(), -1);
+            writeMetaDataToSegment(last.getStart(), last.getSize(), -1, file);
 
             answer = availableSegments.get(0).getStart();
         }
@@ -141,26 +141,26 @@ public class SegmentAllocatorService {
      * @param toWrite byte array with data
      * @param length  how many bytes to read
      */
-    public int writeDataToSegment(int segment, byte[] toWrite, int length) {
+    public int writeDataToSegment(int segment, byte[] toWrite, int length, RandomAccessFile file) {
 
         int currentSegment = segment;
         int cursorInData = 0;
 
         while (true) {
-            SegmentMetaData metaData = readSegmentMetaData(currentSegment);
+            SegmentMetaData metaData = readSegmentMetaData(currentSegment, file);
             if (SegmentMetaData.getSizeOfStructure() + metaData.getOccupied() <
                     metaData.getNumsOfContinuousBlocks() * pageSize) {
                 int freeToWrite = metaData.getNumsOfContinuousBlocks() * pageSize -
                         (SegmentMetaData.getSizeOfStructure() + metaData.getOccupied());
                 int possibleToWrite = min(freeToWrite, length - cursorInData);
 
-                try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+                try {
                     byte[] temp = new byte[possibleToWrite];
                     System.arraycopy(toWrite, cursorInData, temp, 0, possibleToWrite);
                     file.seek(getDataOffset(currentSegment) + metaData.getOccupied());
                     file.write(temp);
                     metaData.setOccupied(metaData.getOccupied() + possibleToWrite);
-                    writeMetaDataToSegment(currentSegment, metaData);
+                    writeMetaDataToSegment(currentSegment, metaData, file);
                 } catch (IOException e) {
                     throw new SegmentAllocatorException(
                             "File writing went wrong during writing to the segment!", e
@@ -175,7 +175,7 @@ public class SegmentAllocatorService {
             }
             if (metaData.getNextSegment() == -1) {
                 int neededNewSegments = neededBytesToSegments(length - cursorInData);
-                currentSegment = expandSegment(currentSegment, neededNewSegments, metaData).getNextSegment();
+                currentSegment = expandSegment(currentSegment, neededNewSegments, metaData, file).getNextSegment();
             } else {
                 currentSegment = metaData.getNextSegment();
             }
@@ -184,8 +184,8 @@ public class SegmentAllocatorService {
         return currentSegment;
     }
 
-    public int writeDataToSegment(int segment, byte[] toWrite) {
-        return writeDataToSegment(segment, toWrite, toWrite.length);
+    public int writeDataToSegment(int segment, byte[] toWrite, RandomAccessFile file) {
+        return writeDataToSegment(segment, toWrite, toWrite.length, file);
     }
 
     /**
@@ -193,14 +193,14 @@ public class SegmentAllocatorService {
      *
      * @param segment to release
      */
-    public void releaseSegment(int segment) {
+    public void releaseSegment(int segment, RandomAccessFile file) {
         Set<Segment> releasedSegments = new HashSet<>();
 
         int currSegment = segment;
 
         SegmentMetaData segmentMetaData;
         do {
-            segmentMetaData = readSegmentMetaData(currSegment);
+            segmentMetaData = readSegmentMetaData(currSegment, file);
             releasedSegments.add(
                     Segment.of(currSegment, currSegment + segmentMetaData.getNumsOfContinuousBlocks() - 1)
             );
@@ -248,12 +248,12 @@ public class SegmentAllocatorService {
      * @param positionInSegment position in segment
      * @return SegmentReadResult
      */
-    public SegmentReadResult readDataFromSegmentInPages(int segment, int positionInSegment) {
-        SegmentMetaData segmentMetaData = readSegmentMetaData(segment);
+    public SegmentReadResult readDataFromSegmentInPages(int segment, int positionInSegment, RandomAccessFile file) {
+        SegmentMetaData segmentMetaData = readSegmentMetaData(segment, file);
         int toRead = segmentMetaData.getOccupied() - positionInSegment;
 
         byte[] result = new byte[min(pageSize, toRead)];
-        try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+        try {
             file.seek(getDataOffset(segment) + positionInSegment);
             file.readFully(result);
         } catch (IOException e) {
@@ -272,11 +272,11 @@ public class SegmentAllocatorService {
      * @param segment to read from
      * @return SegmentReadResult
      */
-    public SegmentReadResult readDataFromSegment(int segment) {
-        SegmentMetaData segmentMetaData = readSegmentMetaData(segment);
+    public SegmentReadResult readDataFromSegment(int segment, RandomAccessFile file) {
+        SegmentMetaData segmentMetaData = readSegmentMetaData(segment, file);
 
         byte[] result = new byte[segmentMetaData.getOccupied()];
-        try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+        try {
             file.seek(getDataOffset(segment));
             file.readFully(result);
         } catch (IOException e) {
@@ -288,12 +288,12 @@ public class SegmentAllocatorService {
         return SegmentReadResult.of(result, segmentMetaData.getNextSegment(), 0);
     }
 
-    public ByteStream readDataFromSegmentByByteStream(int segment) {
-        return new ByteStreamBasedOnSegments(segment, this);
+    public ByteStream readDataFromSegmentByByteStream(int segment, RandomAccessFile file) {
+        return new ByteStreamBasedOnSegments(segment, this, file);
     }
 
     public long getMetaDataOffset(long segment) {
-        return initialOffset + segment * pageSize;
+        return initialOffset + segment * (long) pageSize;
     }
 
     public int getRemainingCapacity() {
@@ -305,19 +305,19 @@ public class SegmentAllocatorService {
     }
 
     private long getDataOffset(long segment) {
-        return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * pageSize;
+        return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * (long) pageSize;
     }
 
     private SegmentMetaData expandSegment(
-            long segment, int neededAmountOfBlocks, SegmentMetaData metaData
+            long segment, int neededAmountOfBlocks, SegmentMetaData metaData, RandomAccessFile file
     ) {
-        int next = allocateSegments(neededAmountOfBlocks);
+        int next = allocateSegments(neededAmountOfBlocks, file);
         SegmentMetaData newMetaData = new SegmentMetaData(
                 metaData.getNumsOfContinuousBlocks(),
                 next,
                 metaData.getNumsOfContinuousBlocks() * pageSize - SegmentMetaData.getSizeOfStructure()
         );
-        writeMetaDataToSegment(segment, newMetaData);
+        writeMetaDataToSegment(segment, newMetaData, file);
         return newMetaData;
     }
 
@@ -344,8 +344,8 @@ public class SegmentAllocatorService {
         return amount + 1;
     }
 
-    private SegmentMetaData readSegmentMetaData(long segment) {
-        try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+    private SegmentMetaData readSegmentMetaData(long segment, RandomAccessFile file) {
+        try {
             file.seek(getMetaDataOffset(segment));
             return SegmentMetaData.of(file.readInt(), file.readInt(), file.readInt());
         } catch (IOException e) {
@@ -354,8 +354,8 @@ public class SegmentAllocatorService {
     }
 
 
-    private void writeMetaDataToSegment(long segment, SegmentMetaData metaData) {
-        try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+    private void writeMetaDataToSegment(long segment, SegmentMetaData metaData, RandomAccessFile file) {
+        try {
             byte[] metaBytes = metaData.toByteArray();
             file.seek(getMetaDataOffset(segment));
             file.write(metaBytes);
@@ -366,8 +366,8 @@ public class SegmentAllocatorService {
         }
     }
 
-    private void writeMetaDataToSegment(int start, int size, int next) {
-        writeMetaDataToSegment(start, new SegmentMetaData(size, next, 0));
+    private void writeMetaDataToSegment(int start, int size, int next, RandomAccessFile file) {
+        writeMetaDataToSegment(start, new SegmentMetaData(size, next, 0), file);
     }
 
 
@@ -379,11 +379,13 @@ public class SegmentAllocatorService {
         private SegmentAllocatorService segmentAllocatorService;
         private SegmentReadResult segmentReadResult;
         private int currPosition;
+        private final RandomAccessFile file;
 
-        public ByteStreamBasedOnSegments(int segment, SegmentAllocatorService segmentAllocatorService) {
+        public ByteStreamBasedOnSegments(int segment, SegmentAllocatorService segmentAllocatorService, RandomAccessFile file) {
             this.segmentAllocatorService = segmentAllocatorService;
-            segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(segment, 0);
+            segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(segment, 0, file);
             currPosition = 0;
+            this.file = file;
         }
 
         @Override
@@ -402,7 +404,9 @@ public class SegmentAllocatorService {
             }
             segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(
                     segmentReadResult.getNextSegment(),
-                    segmentReadResult.getPositionInSegment()
+                    segmentReadResult.getPositionInSegment(),
+                    file
+
             );
             currPosition = 1;
             return segmentReadResult.getArr()[0];
@@ -421,7 +425,8 @@ public class SegmentAllocatorService {
 
                 segmentReadResult = segmentAllocatorService.readDataFromSegmentInPages(
                         segmentReadResult.getNextSegment(),
-                        segmentReadResult.getPositionInSegment()
+                        segmentReadResult.getPositionInSegment(),
+                        file
                 );
                 currPosition = 0;
             }

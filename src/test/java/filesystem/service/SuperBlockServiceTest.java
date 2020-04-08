@@ -80,7 +80,7 @@ public class SuperBlockServiceTest {
             Inode inode = new Inode(1, Long.MAX_VALUE, FILE, 1);
 
             for (int i = 0; i < 5; i++) {
-                superBlockService.acquireInode(inode);
+                superBlockService.acquireInode(inode, file);
             }
 
             // --------------------------------------------
@@ -93,7 +93,7 @@ public class SuperBlockServiceTest {
 
             // try to allocate new inode
             Inode dummyInode = new Inode(13, 113, FILE, 3, 333);
-            int index = superBlockServiceFromFile.acquireInode(dummyInode);
+            int index = superBlockServiceFromFile.acquireInode(dummyInode, file);
 
             file.seek(getInodeOffsetByIndex(index));
 
@@ -112,7 +112,7 @@ public class SuperBlockServiceTest {
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
 
             Inode inode = new Inode(1000, 1001, DIRECTORY, 1002);
-            int index = superBlockService.acquireInode(inode);
+            int index = superBlockService.acquireInode(inode, file);
             file.seek(getInodeOffsetByIndex(index));
 
             // super block should allocate the first free inode (=> with 0 index)
@@ -124,7 +124,7 @@ public class SuperBlockServiceTest {
             assertEquals("counter", inode.getCounter(), file.readInt());
 
             Inode inode1 = new Inode(2000, 2001, FILE, 2002);
-            int index1 = superBlockService.acquireInode(inode1);
+            int index1 = superBlockService.acquireInode(inode1, file);
 
             // super block should allocate the first free inode (=> with 1 index)
             file.seek(getInodeOffsetByIndex(index1));
@@ -137,12 +137,12 @@ public class SuperBlockServiceTest {
             assertEquals("counter", inode1.getCounter(), file.readInt());
 
             // remove allocated inodes and check that them are free now
-            superBlockService.removeInode(1);
+            superBlockService.removeInode(1, file);
 
             file.seek(getInodeOffsetByIndex(index1));
             assertEquals("Inode should be marked as unused!", 0, file.read());
 
-            superBlockService.removeInode(0);
+            superBlockService.removeInode(0, file);
             file.seek(getInodeOffsetByIndex(index));
             assertEquals("Inode should be marked as unused!", 0, file.read());
 
@@ -158,7 +158,7 @@ public class SuperBlockServiceTest {
             // allocate inodes
             Inode dummyInode = new Inode(1, 11, FILE, 111);
             for (int i = 0; i < numTakenFirstInodes; i++) {
-                superBlockService.acquireInode(dummyInode);
+                superBlockService.acquireInode(dummyInode, file);
             }
             /*
              * Inode (in this file system) will look like
@@ -188,59 +188,72 @@ public class SuperBlockServiceTest {
 
 
     @Test
-    public void readInodeTest() {
-        int numTakenFirstInodes = NUM_OF_INODES - 3;
+    public void readInodeTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
 
-        for (int i = 0; i < numTakenFirstInodes; i++) {
-            superBlockService.acquireInode(new Inode(i, Integer.MAX_VALUE + i, FILE, i, i - 1));
-        }
+            int numTakenFirstInodes = NUM_OF_INODES - 3;
 
-        for (int i = 0; i < numTakenFirstInodes; i++) {
-            Inode inode = superBlockService.readInode(i);
+            for (int i = 0; i < numTakenFirstInodes; i++) {
+                superBlockService.acquireInode(new Inode(i, Integer.MAX_VALUE + i, FILE, i, i - 1), file);
+            }
 
-            assertEquals("next segment", i, inode.getSegment());
-            assertEquals("size", Integer.MAX_VALUE + i, inode.getSize());
-            assertEquals("Should be FILE type", FILE.getValue(), inode.getFileType().getValue());
-            assertEquals("counter", i, inode.getCounter());
-            assertEquals("lastSegment", i - 1, inode.getLastSegment());
+            for (int i = 0; i < numTakenFirstInodes; i++) {
+                Inode inode = superBlockService.readInode(i, file);
+
+                assertEquals("next segment", i, inode.getSegment());
+                assertEquals("size", Integer.MAX_VALUE + i, inode.getSize());
+                assertEquals("Should be FILE type", FILE.getValue(), inode.getFileType().getValue());
+                assertEquals("counter", i, inode.getCounter());
+                assertEquals("lastSegment", i - 1, inode.getLastSegment());
+            }
         }
     }
 
     @Test
-    public void updateInodeTest() {
+    public void updateInodeTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
 
-        for (int i = 0; i < 5; i++) {
-            Inode inode = new Inode(i, Integer.MAX_VALUE + i, FILE, i);
-            superBlockService.acquireInode(inode);
+            for (int i = 0; i < 5; i++) {
+                Inode inode = new Inode(i, Integer.MAX_VALUE + i, FILE, i);
+                superBlockService.acquireInode(inode, file);
+            }
+
+
+            Inode updatedInode = new Inode(3333, 33333, DIRECTORY, 33333, 3333333);
+            superBlockService.updateInode(3, updatedInode, file);
+
+            Inode inode = superBlockService.readInode(3, file);
+
+            // didn't want to use equals on all fields (if it is will be generated for another usage then replace it)
+            assertEquals("segments should be the same", inode.getSegment(), updatedInode.getSegment());
+            assertEquals("size should be the same", inode.getSize(), updatedInode.getSize());
+            assertEquals("counter should be the same", inode.getCounter(), updatedInode.getCounter());
+            assertEquals("file type should be the same", inode.getFileType(), updatedInode.getFileType());
+            assertEquals("lastSegment type should be the same", inode.getLastSegment(), updatedInode.getLastSegment());
         }
-
-
-        Inode updatedInode = new Inode(3333, 33333, DIRECTORY, 33333, 3333333);
-        superBlockService.updateInode(3, updatedInode);
-
-        Inode inode = superBlockService.readInode(3);
-
-        // didn't want to use equals on all fields (if it is will be generated for another usage then replace it)
-        assertEquals("segments should be the same", inode.getSegment(), updatedInode.getSegment());
-        assertEquals("size should be the same", inode.getSize(), updatedInode.getSize());
-        assertEquals("counter should be the same", inode.getCounter(), updatedInode.getCounter());
-        assertEquals("file type should be the same", inode.getFileType(), updatedInode.getFileType());
-        assertEquals("lastSegment type should be the same", inode.getLastSegment(), updatedInode.getLastSegment());
     }
 
     @Test(expected = SuperBlockException.class)
-    public void readOutOfBoundInodeTest() {
-        superBlockService.readInode(NUM_OF_INODES);
+    public void readOutOfBoundInodeTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
+
+            superBlockService.readInode(NUM_OF_INODES, file);
+        }
     }
 
     @Test(expected = SuperBlockException.class)
-    public void updateOutOfBoundInodeTest() {
-        superBlockService.updateInode(NUM_OF_INODES, new Inode(1, 1, FILE, 1));
+    public void updateOutOfBoundInodeTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
+
+            superBlockService.updateInode(NUM_OF_INODES, new Inode(1, 1, FILE, 1), file);
+        }
     }
 
     @Test(expected = SuperBlockException.class)
-    public void acquireMoreThanPossibleInodesTest() {
-        IntStream.range(0, NUM_OF_INODES + 1).forEach(it -> superBlockService.acquireInode(new Inode(1, 1, FILE, 1)));
+    public void acquireMoreThanPossibleInodesTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
+            IntStream.range(0, NUM_OF_INODES + 1).forEach(it -> superBlockService.acquireInode(new Inode(1, 1, FILE, 1), file));
+        }
     }
 
     @Test(expected = SuperBlockException.class)

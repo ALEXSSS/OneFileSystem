@@ -39,7 +39,7 @@ public interface InternalFileSystemInterface {
     void moveFileToDirectory(String pathToFileParent, String whereToMove, String fileName);
 
     /**
-     * @param path where file is located
+     * @param path     where file is located
      * @param withSize boolean if you need to know size as well (please, remember, that this will take some extra time)
      * @return list of file's descriptions
      * @throws filesystem.entity.exception.FileManagerException if directory doesn't exist
