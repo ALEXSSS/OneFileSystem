@@ -33,15 +33,15 @@ import static org.junit.Assert.assertThat;
 
 public class FileManagerTest {
 
-    private static int DEFAULT_SIZE_OF_PAGE = 4096;
+    private static int DEFAULT_SIZE_OF_PAGE = 1024;
     private static FileSystemConfiguration fileSystemConfiguration;
     private static FileManager fileManager;
     ClassLoader classLoader = getClass().getClassLoader();
 
     @Before
     public void init() throws IOException {
-        long size = DEFAULT_SIZE_OF_PAGE * 100000;
-        File originalFile = File.createTempFile("test", "test");
+        long size = DEFAULT_SIZE_OF_PAGE * 1024 * 1024;
+        File originalFile = new File("test");
         originalFile.createNewFile();
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             file.setLength(size);
@@ -586,5 +586,20 @@ public class FileManagerTest {
             fileManager.copyDataFromFileToOutputStream("/smallFile", out);
         }
 
+    }
+
+//    @Ignore
+    @Test
+    public void forZipTest() throws IOException {
+        fileManager.createFile(".", "bigFile");
+        // it will copy image in oneFileSystem and back to another file
+        try (InputStream in = classLoader.getResourceAsStream("res.zip");) {
+            fileManager.writeToFileFromInputStream("/bigFile", in);
+        }
+
+        File copiedJpg = new File("./doc/test.zip");
+        try (OutputStream out = new FileOutputStream(copiedJpg)) {
+            fileManager.copyDataFromFileToOutputStream("/bigFile", out);
+        }
     }
 }
