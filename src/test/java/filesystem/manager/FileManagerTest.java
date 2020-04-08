@@ -40,7 +40,7 @@ public class FileManagerTest {
 
     @Before
     public void init() throws IOException {
-        long size = DEFAULT_SIZE_OF_PAGE * 1024l * 1024l;
+        long size = DEFAULT_SIZE_OF_PAGE * 1024L * 1024L;
         File originalFile = File.createTempFile("test", "test");
         originalFile.createNewFile();
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
@@ -69,7 +69,7 @@ public class FileManagerTest {
 
 
         // it will copy image in oneFileSystem and back to another file
-        try (InputStream in = classLoader.getResourceAsStream("test.jpg");) {
+        try (InputStream in = classLoader.getResourceAsStream("test.jpg")) {
             fileManager.writeToFileFromInputStream("second/smallFile", in);
         }
 
@@ -585,6 +585,5 @@ public class FileManagerTest {
         try (OutputStream out = new FileOutputStream(copiedJpg)) {
             fileManager.copyDataFromFileToOutputStream("/smallFile", out);
         }
-
     }
 }

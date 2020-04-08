@@ -8,6 +8,7 @@ import filesystem.entity.filesystem.BaseFileInf;
 import filesystem.entity.filesystem.DEntry;
 import filesystem.entity.filesystem.Directory;
 import filesystem.entity.filesystem.DirectoryReadResult;
+import filesystem.pool.SilentBlockingResourcePool;
 import filesystem.service.SegmentAllocatorService;
 import filesystem.service.SuperBlockService;
 
@@ -44,7 +45,7 @@ public class FileManager implements OneFileSystem {
     private final SegmentAllocatorService segmentAllocatorService;
 
 
-    private final SilentBlockingQueue<RandomAccessFile> poolOfFiles;
+    private final SilentBlockingResourcePool<RandomAccessFile> poolOfFiles;
 
     /**
      * Creates and configures fileSystem
@@ -59,7 +60,7 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getFile()
         );
 
-        poolOfFiles = new SilentBlockingQueue(fileSystemConfiguration.getConcurrencyLevel());
+        poolOfFiles = new SilentBlockingResourcePool<>(fileSystemConfiguration.getConcurrencyLevel());
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
         segmentAllocatorService = new SegmentAllocatorService(
@@ -84,7 +85,7 @@ public class FileManager implements OneFileSystem {
     /**
      * To initialise file system based on file.
      *
-     * @param file with already initialised file system
+     * @param file             with already initialised file system
      * @param concurrencyLevel num of concurrently working threads (on windows always one)
      */
     public FileManager(File file, int concurrencyLevel) {
@@ -101,7 +102,6 @@ public class FileManager implements OneFileSystem {
 
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
-
         segmentAllocatorService = new SegmentAllocatorService(
                 superBlockService.getSuperBlockOffset(),
                 segmentsAmount,
@@ -109,7 +109,7 @@ public class FileManager implements OneFileSystem {
                 file
         );
 
-        poolOfFiles = new SilentBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
+        poolOfFiles = new SilentBlockingResourcePool<>(fileSystemConfiguration.getConcurrencyLevel());
 
 
         for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
