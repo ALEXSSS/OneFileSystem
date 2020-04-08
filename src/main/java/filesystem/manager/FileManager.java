@@ -335,6 +335,7 @@ public class FileManager implements OneFileSystem {
     public void createFile(String pathToFileParent, String fileName, long size) {
         RandomAccessFile file = null;
         try {
+            file = poolOfFiles.take();
             createFile(pathToFileParent, fileName, size, file);
         } finally {
             poolOfFiles.put(file);
@@ -648,7 +649,6 @@ public class FileManager implements OneFileSystem {
     }
 
     private void createFile(String pathToFileParent, String fileName, long size, RandomAccessFile file) {
-            file = poolOfFiles.take();
             fileName = cleanFileName(fileName);
             checkFileName(fileName);
             int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
