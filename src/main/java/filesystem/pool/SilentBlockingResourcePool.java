@@ -20,7 +20,6 @@ public class SilentBlockingResourcePool<T> {
 
 
     /**
-     *
      * @param resources to control them
      */
     public SilentBlockingResourcePool(Collection<T> resources) {
