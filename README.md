@@ -5,7 +5,7 @@ BUILD INFORMATION:
 ##
 
 #### What I would want to do next:
-0) take RandomAccessFiles from pool
+0) ~~take RandomAccessFiles from pool~~ **(done during fixing windows bug)**
 1) add soft link support
 2) add fine-grained locking mechanism instead of ReadWriteReentrantLock
 3) add functionality to run de-fragmentation
@@ -51,7 +51,7 @@ commonly used file abstractions like file, directory, hardlink.
 Initialise FileManager 
 
 ```
-fileSystemConfiguration = FileSystemConfiguration.of(sifeOfFileSystem, sizeOfPage, numOfInodes, originalFile, true);
+fileSystemConfiguration = FileSystemConfiguration.of(sifeOfFileSystem, sizeOfPage, numOfInodes, originalFile, true, conccurencyLevel);
 fileManager = new FileManager(fileSystemConfiguration);
 ```
 
