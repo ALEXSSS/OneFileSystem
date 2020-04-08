@@ -51,7 +51,7 @@ commonly used file abstractions like file, directory, hardlink.
 Initialise FileManager 
 
 ```
-fileSystemConfiguration = FileSystemConfiguration.of(sifeOfFileSystem, sizeOfPage, numOfInodes, originalFile, true);
+fileSystemConfiguration = FileSystemConfiguration.of(sifeOfFileSystem, sizeOfPage, numOfInodes, originalFile, true, conccurencyLevel);
 fileManager = new FileManager(fileSystemConfiguration);
 ```
 
