@@ -1,9 +1,11 @@
-package filesystem.manager;
+package filesystem.manager.impl;
 
 import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.exception.FileManagerException;
 import filesystem.entity.filesystem.DirectoryReadResult;
+import filesystem.manager.ExternalFileSystemInterface;
+import filesystem.manager.OneFileSystem;
 
 import java.io.File;
 import java.io.InputStream;

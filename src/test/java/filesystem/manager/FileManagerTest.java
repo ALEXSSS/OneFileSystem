@@ -5,6 +5,7 @@ import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.exception.FileManagerException;
 import filesystem.entity.filesystem.BaseFileInf;
 import filesystem.entity.filesystem.DirectoryReadResult;
+import filesystem.manager.impl.FileManager;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;

@@ -26,7 +26,7 @@ public class FileSystemConfiguration {
      * @param pageSize         pageSize (and default segment size)
      * @param numOfInodes      regulates how many files could be created ( will be initially filled in super-block)
      * @param file             file to put file system in
-     * @param concurrencyLevel num of working threads to consider (for windows always 1)
+     * @param concurrencyLevel num of working threads to concurrently work with file system (for windows always 1)
      * @throws OneFileSystemException if file cannot be modified
      */
     public FileSystemConfiguration(

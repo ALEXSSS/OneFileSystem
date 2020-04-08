@@ -1,4 +1,4 @@
-package filesystem.manager;
+package filesystem.manager.impl;
 
 import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
@@ -8,6 +8,7 @@ import filesystem.entity.filesystem.BaseFileInf;
 import filesystem.entity.filesystem.DEntry;
 import filesystem.entity.filesystem.Directory;
 import filesystem.entity.filesystem.DirectoryReadResult;
+import filesystem.manager.OneFileSystem;
 import filesystem.pool.SilentBlockingResourcePool;
 import filesystem.service.SegmentAllocatorService;
 import filesystem.service.SuperBlockService;
