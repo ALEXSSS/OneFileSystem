@@ -1,5 +1,6 @@
 package filesystem.manager;
 
+import com.sun.imageio.spi.RAFImageInputStreamSpi;
 import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.datastorage.Inode;
@@ -45,7 +46,7 @@ public class FileManager implements OneFileSystem {
     private final SegmentAllocatorService segmentAllocatorService;
 
 
-    private final BlockingQueue<RandomAccessFile> poolOfFiles;
+    private final SilentBlockingQueue<RandomAccessFile> poolOfFiles;
 
     /**
      * Creates and configures fileSystem
@@ -60,7 +61,7 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getFile()
         );
 
-        poolOfFiles = new LinkedBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
+        poolOfFiles = new SilentBlockingQueue(fileSystemConfiguration.getConcurrencyLevel());
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
         segmentAllocatorService = new SegmentAllocatorService(
@@ -85,7 +86,8 @@ public class FileManager implements OneFileSystem {
                 superBlockService.getPageSize(),
                 superBlockService.getNumOfInodes(),
                 file,
-                false
+                false,
+                concurrencyLevel
         );
 
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
@@ -97,7 +99,7 @@ public class FileManager implements OneFileSystem {
                 file
         );
 
-        poolOfFiles = new LinkedBlockingQueue<>(concurrencyLevel);
+        poolOfFiles = new SilentBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
     }
 
     // external api
@@ -112,21 +114,27 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void writeToFileFromInputStream(String pathToFile, InputStream in) {
-        int fileInodeNum = getFileInodeByPath(pathToFile);
-        Inode fileInode = superBlockService.readInode(fileInodeNum);
-
-        if (fileInode.getFileType() == DIRECTORY) {
-            throw new FileManagerException("Cannot write to the directory!");
-        }
-        byte[] data = new byte[1024];
+        RandomAccessFile file = null;
         try {
-            while (true) {
-                int read = in.read(data, 0, data.length);
-                if (read == -1) break;
-                writeDataByInode(fileInodeNum, data, read);
+            file = poolOfFiles.take();
+            int fileInodeNum = getFileInodeByPath(pathToFile, file);
+            Inode fileInode = superBlockService.readInode(fileInodeNum, file);
+
+            if (fileInode.getFileType() == DIRECTORY) {
+                throw new FileManagerException("Cannot write to the directory!");
             }
-        } catch (Exception e) {
-            throw new FileManagerException("Some IO error occurred!", e);
+            byte[] data = new byte[1024];
+            try {
+                while (true) {
+                    int read = in.read(data, 0, data.length);
+                    if (read == -1) break;
+                    writeDataByInode(fileInodeNum, data, read, file);
+                }
+            } catch (Exception e) {
+                throw new FileManagerException("Some IO error occurred!", e);
+            }
+        } finally {
+            poolOfFiles.put(file);
         }
     }
 
@@ -139,25 +147,31 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void copyDataFromFileToOutputStream(String pathToFile, OutputStream out) {
-        int fileInodeNum = getFileInodeByPath(pathToFile);
-        Inode fileInode = superBlockService.readInode(fileInodeNum);
-
-        if (fileInode.getFileType() == DIRECTORY) {
-            throw new FileManagerException(pathToFile + " is directory!");
-        }
-        ByteStream stream = segmentAllocatorService
-                .readDataFromSegmentByByteStream(fileInode.getSegment());
-
-        stream.getString(); // at the start of file (it's name is stored)
-
-        byte[] data = new byte[1024];
+        RandomAccessFile file = null;
         try {
-            while (stream.hasNext()) {
-                int read = stream.getArr(data);
-                out.write(data, 0, read);
+            file = poolOfFiles.take();
+            int fileInodeNum = getFileInodeByPath(pathToFile, file);
+            Inode fileInode = superBlockService.readInode(fileInodeNum, file);
+
+            if (fileInode.getFileType() == DIRECTORY) {
+                throw new FileManagerException(pathToFile + " is directory!");
             }
-        } catch (Exception e) {
-            throw new FileManagerException("Some IO error occurred!", e);
+            ByteStream stream = segmentAllocatorService
+                    .readDataFromSegmentByByteStream(fileInode.getSegment(), file);
+
+            stream.getString(); // at the start of file (it's name is stored)
+
+            byte[] data = new byte[1024];
+            try {
+                while (stream.hasNext()) {
+                    int read = stream.getArr(data);
+                    out.write(data, 0, read);
+                }
+            } catch (Exception e) {
+                throw new FileManagerException("Some IO error occurred!", e);
+            }
+        } finally {
+            poolOfFiles.put(file);
         }
     }
 
@@ -169,14 +183,20 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void writeToFile(String pathToFile, byte[] data) {
-        int inodeNum = getFileInodeByPath(pathToFile);
-        Inode inode = superBlockService.readInode(inodeNum);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            int inodeNum = getFileInodeByPath(pathToFile, file);
+            Inode inode = superBlockService.readInode(inodeNum, file);
 
-        if (inode.getFileType() != FILE) {
-            throw new FileManagerException(pathToFile + " isn't a file!");
+            if (inode.getFileType() != FILE) {
+                throw new FileManagerException(pathToFile + " isn't a file!");
+            }
+
+            writeDataByInode(inodeNum, data, file);
+        } finally {
+            poolOfFiles.put(file);
         }
-
-        writeDataByInode(inodeNum, data);
     }
 
     /**
@@ -185,14 +205,20 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public ByteStream readFileByByteStream(String pathToFile) {
-        int inodeNum = getFileInodeByPath(pathToFile);
-        Inode inode = superBlockService.readInode(inodeNum);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            int inodeNum = getFileInodeByPath(pathToFile, file);
+            Inode inode = superBlockService.readInode(inodeNum, file);
 
-        if (inode.getFileType() != FILE) {
-            throw new FileManagerException(pathToFile + " isn't a file!");
+            if (inode.getFileType() != FILE) {
+                throw new FileManagerException(pathToFile + " isn't a file!");
+            }
+
+            return segmentAllocatorService.readDataFromSegmentByByteStream(inode.getSegment(), file);
+        } finally {
+            poolOfFiles.put(file);
         }
-
-        return segmentAllocatorService.readDataFromSegmentByByteStream(inode.getSegment());
     }
 
     /**
@@ -202,8 +228,14 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void moveFileToDirectory(String pathToFileParent, String whereToMove, String fileName) {
-        createHardLink(addToPath(pathToFileParent, fileName), whereToMove, fileName);
-        removeFile(pathToFileParent, fileName);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            createHardLink(addToPath(pathToFileParent, fileName), whereToMove, fileName, file);
+            removeFile(pathToFileParent, fileName, file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     /**
@@ -213,14 +245,21 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public List<DirectoryReadResult> getFilesInDirectory(String path, boolean withSize) {
-        return getContentInDirectory(path).stream()
-                .map(
-                        dEntry -> {
-                            Inode inode = superBlockService.readInode(dEntry.getInode());
-                            long fileSize = withSize ? getFileSize(dEntry.getInode()) : 0;
-                            return DirectoryReadResult.of(dEntry.getName(), inode.getFileType(), fileSize);
-                        })
-                .collect(toList());
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            RandomAccessFile finalFile = file;
+            return getContentInDirectory(path, file).stream()
+                    .map(
+                            dEntry -> {
+                                Inode inode = superBlockService.readInode(dEntry.getInode(), finalFile);
+                                long fileSize = withSize ? getFileSize(dEntry.getInode(), finalFile) : 0;
+                                return DirectoryReadResult.of(dEntry.getName(), inode.getFileType(), fileSize);
+                            })
+                    .collect(toList());
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     /**
@@ -239,7 +278,13 @@ public class FileManager implements OneFileSystem {
      * @see #getFilesInDirectory(String, boolean)
      */
     public List<String> getFilesNamesInDirectory(String path) {
-        return getContentInDirectory(path).stream().map(DEntry::getName).collect(toList());
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            return getContentInDirectory(path, file).stream().map(DEntry::getName).collect(toList());
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     /**
@@ -248,13 +293,19 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createDirectory(String pathToFileParent, String fileName) {
-        fileName = cleanFileName(fileName);
-        checkFileName(fileName);
-        int parentInode = getFileInodeByPath(pathToFileParent);
-        Directory newDirectory = new Directory(fileName, DEntry.of("..", parentInode), emptyList());
-        int inodeOfNewDirectoryNum = allocateNewDirectory(newDirectory);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            fileName = cleanFileName(fileName);
+            checkFileName(fileName);
+            int parentInode = getFileInodeByPath(pathToFileParent, file);
+            Directory newDirectory = new Directory(fileName, DEntry.of("..", parentInode), emptyList());
+            int inodeOfNewDirectoryNum = allocateNewDirectory(newDirectory, file);
 
-        addDEntryToDirectory(parentInode, DEntry.of(fileName, inodeOfNewDirectoryNum));
+            addDEntryToDirectory(parentInode, DEntry.of(fileName, inodeOfNewDirectoryNum), file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     /**
@@ -264,10 +315,16 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createFile(String pathToFileParent, String fileName, long size) {
-        fileName = cleanFileName(fileName);
-        checkFileName(fileName);
-        int fileInodeNum = allocateNewBaseFileInf(size, fileName);
-        addDEntryToDirectory(getFileInodeByPath(pathToFileParent), DEntry.of(fileName, fileInodeNum));
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            fileName = cleanFileName(fileName);
+            checkFileName(fileName);
+            int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
+            addDEntryToDirectory(getFileInodeByPath(pathToFileParent, file), DEntry.of(fileName, fileInodeNum), file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     /**
@@ -287,18 +344,12 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink) {
-        nameOfHardLink = cleanFileName(nameOfHardLink);
-        checkFileName(nameOfHardLink);
-        if (checkCyclicReferences(pathToFile, whereToAdd)) {
-            throw new FileManagerException("Cyclic reference creation!");
+        RandomAccessFile file = null;
+        try {
+            createHardLink(pathToFile, whereToAdd, nameOfHardLink, file);
+        } finally {
+            poolOfFiles.put(file);
         }
-        int fileInode = getFileInodeByPath(pathToFile);
-        int directoryInodeNum = getFileInodeByPath(whereToAdd);
-        addDEntryToDirectory(directoryInodeNum, DEntry.of(nameOfHardLink, fileInode));
-
-        Inode inode = superBlockService.readInode(fileInode);
-        inode.incrementCounter();
-        superBlockService.updateInode(fileInode, inode);
     }
 
     /**
@@ -308,22 +359,28 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void copyFileToDirectory(String pathToFile, String whereToCopy, String withName) {
-        withName = cleanFileName(withName);
-        int inodeNum = getFileInodeByPath(pathToFile);
-        Inode fileInode = superBlockService.readInode(inodeNum);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            withName = cleanFileName(withName);
+            int inodeNum = getFileInodeByPath(pathToFile, file);
+            Inode fileInode = superBlockService.readInode(inodeNum, file);
 
-        createFile(whereToCopy, withName, fileInode.getSize());
+            createFile(whereToCopy, withName, fileInode.getSize());
 
-        int copiedFileInodeNum = getFileInodeByPath(addToPath(whereToCopy, withName));
+            int copiedFileInodeNum = getFileInodeByPath(addToPath(whereToCopy, withName), file);
 
-        ByteStream stream = segmentAllocatorService
-                .readDataFromSegmentByByteStream(fileInode.getSegment());
+            ByteStream stream = segmentAllocatorService
+                    .readDataFromSegmentByByteStream(fileInode.getSegment(), file);
 
-        byte[] data = new byte[1024];
-        stream.getString();
-        while (stream.hasNext()) {
-            int read = stream.getArr(data);
-            writeDataByInode(copiedFileInodeNum, data, read);
+            byte[] data = new byte[1024];
+            stream.getString();
+            while (stream.hasNext()) {
+                int read = stream.getArr(data);
+                writeDataByInode(copiedFileInodeNum, data, read, file);
+            }
+        } finally {
+            poolOfFiles.put(file);
         }
     }
 
@@ -332,8 +389,14 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public void removeFile(String pathToFile) {
-        String fileName = getFileNameByPath(pathToFile);
-        removeFile(getFileParent(pathToFile), fileName);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            String fileName = getFileNameByPath(pathToFile);
+            removeFile(getFileParent(pathToFile), fileName, file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
 
@@ -361,50 +424,56 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public long getFileSize(String pathToFile) {
-        return getFileSize(getFileInodeByPath(pathToFile), new HashSet<>(), 0);
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            return getFileSize(getFileInodeByPath(pathToFile, file), new HashSet<>(), 0, file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
     // some useful methods --------------------------------------------------------------------------
 
-    private long getFileSize(int inodeNum, Set<Integer> consideredInodes, long accumulated) {
+    private long getFileSize(int inodeNum, Set<Integer> consideredInodes, long accumulated, RandomAccessFile file) {
         if (consideredInodes.contains(inodeNum)) {
             return accumulated;
         }
 
-        Inode inode = superBlockService.readInode(inodeNum);
+        Inode inode = superBlockService.readInode(inodeNum, file);
         if (inode.getFileType() == FILE) {
             consideredInodes.add(inodeNum);
             return inode.getSize() + accumulated;
         }
 
-        Directory directory = readDirectory(inodeNum);
+        Directory directory = readDirectory(inodeNum, file);
         for (DEntry dEntry : directory.getdEntries()) {
-            accumulated = getFileSize(dEntry.getInode(), consideredInodes, accumulated);
+            accumulated = getFileSize(dEntry.getInode(), consideredInodes, accumulated, file);
         }
 
         return accumulated;
     }
 
-    public long getFileSize(int inodeNum) {
-        return getFileSize(inodeNum, new HashSet<>(), 0);
+    public long getFileSize(int inodeNum, RandomAccessFile file) {
+        return getFileSize(inodeNum, new HashSet<>(), 0, file);
     }
 
-    private boolean checkCyclicReferences(String ancestor, String directoryPathToCheck) {
+    private boolean checkCyclicReferences(String ancestor, String directoryPathToCheck, RandomAccessFile file) {
         if (checkThatDirectoryAncestor(ancestor, directoryPathToCheck)) {
-            Inode fileInode = superBlockService.readInode(getFileInodeByPath(ancestor));
+            Inode fileInode = superBlockService.readInode(getFileInodeByPath(ancestor, file), file);
             return fileInode.getFileType() == DIRECTORY;
         }
         return false;
     }
 
-    private void removeFile(String pathToFileParent, String fileName) {
-        int parentInodeNum = getFileInodeByPath(pathToFileParent);
-        removeDEntryFromDirectory(parentInodeNum, DEntry.of(fileName, -1));
+    private void removeFile(String pathToFileParent, String fileName, RandomAccessFile file) {
+        int parentInodeNum = getFileInodeByPath(pathToFileParent, file);
+        removeDEntryFromDirectory(parentInodeNum, DEntry.of(fileName, -1), file);
     }
 
-    private List<DEntry> getContentInDirectory(String path) {
-        int inode = getFileInodeByPath(path);
-        return readDirectory(inode).getdEntries();
+    private List<DEntry> getContentInDirectory(String path, RandomAccessFile file) {
+        int inode = getFileInodeByPath(path, file);
+        return readDirectory(inode, file).getdEntries();
     }
 
 
@@ -414,31 +483,31 @@ public class FileManager implements OneFileSystem {
         }
     }
 
-    private Directory readDirectory(int inodeNum) {
-        Inode inode = superBlockService.readInode(inodeNum);
+    private Directory readDirectory(int inodeNum, RandomAccessFile file) {
+        Inode inode = superBlockService.readInode(inodeNum, file);
         if (inode.getFileType() != DIRECTORY)
             throw new FileManagerException("File isn't directory");
         return Directory.of(
-                segmentAllocatorService.readDataFromSegmentByByteStream(inode.getSegment())
+                segmentAllocatorService.readDataFromSegmentByByteStream(inode.getSegment(), file)
         );
     }
 
-    private void addDEntryToDirectory(int inodeOfParent, DEntry dEntry) {
-        Directory parentDirectory = readDirectory(inodeOfParent);
+    private void addDEntryToDirectory(int inodeOfParent, DEntry dEntry, RandomAccessFile file) {
+        Directory parentDirectory = readDirectory(inodeOfParent, file);
 
         if (!parentDirectory.addDEntry(dEntry)) {
             throw new FileManagerException("File already exists! " + dEntry.getName());
         }
 
-        reallocateSegments(inodeOfParent);
-        writeDataByInode(inodeOfParent, parentDirectory.toByteArray());
+        reallocateSegments(inodeOfParent, file);
+        writeDataByInode(inodeOfParent, parentDirectory.toByteArray(), file);
     }
 
 
-    private void removeDEntryFromDirectory(int inodeOfParent, DEntry dEntry) {
-        Directory parentDirectory = readDirectory(inodeOfParent);
+    private void removeDEntryFromDirectory(int inodeOfParent, DEntry dEntry, RandomAccessFile file) {
+        Directory parentDirectory = readDirectory(inodeOfParent, file);
 
-        reallocateSegments(inodeOfParent);
+        reallocateSegments(inodeOfParent, file);
 
         DEntry removedFileDEntry = parentDirectory.getDEntry(dEntry);
 
@@ -447,77 +516,83 @@ public class FileManager implements OneFileSystem {
         }
 
         parentDirectory.removeDEntry(removedFileDEntry);
-        writeDataByInode(inodeOfParent, parentDirectory.toByteArray());
+        writeDataByInode(inodeOfParent, parentDirectory.toByteArray(), file);
 
         int removedFileInodeNum = removedFileDEntry.getInode();
-        Inode removedFileInode = superBlockService.readInode(removedFileInodeNum);
+        Inode removedFileInode = superBlockService.readInode(removedFileInodeNum, file);
         removedFileInode.decrementCounter();
 
         if (removedFileInode.getCounter() == 0) {
             if (removedFileInode.getFileType() == DIRECTORY) {
-                Directory directory = readDirectory(removedFileInodeNum);
-                directory.getdEntries().forEach(dEntryInside -> removeDEntryFromDirectory(removedFileInodeNum, dEntryInside));
+                Directory directory = readDirectory(removedFileInodeNum, file);
+                directory.getdEntries().forEach(dEntryInside -> removeDEntryFromDirectory(removedFileInodeNum, dEntryInside, file));
             }
 
-            removedFileInode = superBlockService.readInode(removedFileInodeNum);
-            superBlockService.removeInode(removedFileInodeNum);
-            segmentAllocatorService.releaseSegment(removedFileInode.getSegment());
+            removedFileInode = superBlockService.readInode(removedFileInodeNum, file);
+            superBlockService.removeInode(removedFileInodeNum, file);
+            segmentAllocatorService.releaseSegment(removedFileInode.getSegment(), file);
         } else {
-            superBlockService.updateInode(removedFileInodeNum, removedFileInode);
+            superBlockService.updateInode(removedFileInodeNum, removedFileInode, file);
         }
     }
 
-    private void writeDataByInode(int inodeNum, byte[] data, int length) {
-        Inode inode = superBlockService.readInode(inodeNum);
-        int lastSegment = segmentAllocatorService.writeDataToSegment(inode.getLastSegment(), data, length);
+    private void writeDataByInode(int inodeNum, byte[] data, int length, RandomAccessFile file) {
+        Inode inode = superBlockService.readInode(inodeNum, file);
+        int lastSegment = segmentAllocatorService.writeDataToSegment(inode.getLastSegment(), data, length, file);
         inode.setLastSegment(lastSegment);
         inode.addSize(data.length);
-        superBlockService.updateInode(inodeNum, inode);
+        superBlockService.updateInode(inodeNum, inode, file);
     }
 
-    private void writeDataByInode(int inodeNum, byte[] data) {
-        writeDataByInode(inodeNum, data, data.length);
+    private void writeDataByInode(int inodeNum, byte[] data, RandomAccessFile file) {
+        writeDataByInode(inodeNum, data, data.length, file);
     }
 
     private int getSegmentsAmount(FileSystemConfiguration configuration, long superBlockOffset) {
         return (int) ((configuration.getSize() - superBlockOffset) / configuration.getPageSize());
     }
 
-    private int allocateNewDirectory(Directory directory) {
-        int segment = segmentAllocatorService.allocateSegments(1);
-        int inode = superBlockService.acquireInode(new Inode(segment, 0, DIRECTORY, 1));
+    private int allocateNewDirectory(Directory directory, RandomAccessFile file) {
+        int segment = segmentAllocatorService.allocateSegments(1, file);
+        int inode = superBlockService.acquireInode(new Inode(segment, 0, DIRECTORY, 1), file);
 
-        writeDataByInode(inode, directory.toByteArray());
+        writeDataByInode(inode, directory.toByteArray(), file);
         return inode;
     }
 
-    private int allocateNewBaseFileInf(long size, String name) {
-        int segment = segmentAllocatorService.allocateSegmentsInBytes(size);
-        int inode = superBlockService.acquireInode(new Inode(segment, 0, FILE, 1));
+    private int allocateNewBaseFileInf(long size, String name, RandomAccessFile file) {
+        int segment = segmentAllocatorService.allocateSegmentsInBytes(size, file);
+        int inode = superBlockService.acquireInode(new Inode(segment, 0, FILE, 1), file);
 
-        writeDataByInode(inode, BaseFileInf.of(name).toByteArray());
+        writeDataByInode(inode, BaseFileInf.of(name).toByteArray(), file);
         return inode;
     }
 
     private void initialiseRoot() {
-        allocateNewDirectory(new Directory("", DEntry.of("", -1), emptyList()));
+        RandomAccessFile file = null;
+        try {
+            file = poolOfFiles.take();
+            allocateNewDirectory(new Directory("", DEntry.of("", -1), emptyList()), file);
+        } finally {
+            poolOfFiles.put(file);
+        }
     }
 
-    private void reallocateSegments(int inodeNum) {
-        Inode inode = superBlockService.readInode(inodeNum);
-        segmentAllocatorService.releaseSegment(inode.getSegment());
-        int newSegment = segmentAllocatorService.allocateSegmentsInBytes(inode.getSize());
+    private void reallocateSegments(int inodeNum, RandomAccessFile file) {
+        Inode inode = superBlockService.readInode(inodeNum, file);
+        segmentAllocatorService.releaseSegment(inode.getSegment(), file);
+        int newSegment = segmentAllocatorService.allocateSegmentsInBytes(inode.getSize(), file);
         inode.setSegment(newSegment);
         inode.setLastSegment(newSegment);
         inode.setSize(0);
-        superBlockService.updateInode(inodeNum, inode);
+        superBlockService.updateInode(inodeNum, inode, file);
     }
 
-    private int getFileInodeByPath(String path) {
+    private int getFileInodeByPath(String path, RandomAccessFile file) {
         List<String> steps = pathToSteps(path);
 
         int curr = 0;
-        Directory curDirectory = readDirectory(curr);
+        Directory curDirectory = readDirectory(curr, file);
 
         for (int i = 0; i < steps.size() - 1; i++) {
             List<DEntry> dEntries = curDirectory.getdEntries();
@@ -527,7 +602,7 @@ public class FileManager implements OneFileSystem {
             }
 
             curr = dEntries.get(neededDirectory).getInode();
-            curDirectory = readDirectory(curr);
+            curDirectory = readDirectory(curr, file);
         }
 
         String lastStep = steps.get(steps.size() - 1);
@@ -540,6 +615,21 @@ public class FileManager implements OneFileSystem {
         }
 
         return curDirectory.getdEntries().get(neededFile).getInode();
+    }
+
+    private void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink, RandomAccessFile file) {
+        nameOfHardLink = cleanFileName(nameOfHardLink);
+        checkFileName(nameOfHardLink);
+        if (checkCyclicReferences(pathToFile, whereToAdd, file)) {
+            throw new FileManagerException("Cyclic reference creation!");
+        }
+        int fileInode = getFileInodeByPath(pathToFile, file);
+        int directoryInodeNum = getFileInodeByPath(whereToAdd, file);
+        addDEntryToDirectory(directoryInodeNum, DEntry.of(nameOfHardLink, fileInode), file);
+
+        Inode inode = superBlockService.readInode(fileInode, file);
+        inode.incrementCounter();
+        superBlockService.updateInode(fileInode, inode, file);
     }
 
 }

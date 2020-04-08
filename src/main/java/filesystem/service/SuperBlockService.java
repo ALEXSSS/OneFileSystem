@@ -110,14 +110,14 @@ public class SuperBlockService {
      * @return inodeNum (or index) of acquired inode
      * @see Inode
      */
-    public int acquireInode(Inode inode) {
+    public int acquireInode(Inode inode, RandomAccessFile rFile) {
         if (freeInodes.isEmpty())
             throw new SuperBlockException("All inodes are taken!");
 
         int inodeNum = freeInodes.poll();
         int offset = getInodeOffsetByIndex(inodeNum);
 
-        try (RandomAccessFile rFile = new RandomAccessFile(file, "rw")) {
+        try {
             rFile.seek(offset);
             rFile.write(1);
             rFile.write(inode.toByteArray());
@@ -134,13 +134,13 @@ public class SuperBlockService {
      * @param inode    instance of Inode class to write
      * @see Inode
      */
-    public void updateInode(int inodeNum, Inode inode) {
+    public void updateInode(int inodeNum, Inode inode, RandomAccessFile rFile) {
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
 
         int offset = getInodeOffsetByIndex(inodeNum) + 1;
 
-        try (RandomAccessFile rFile = new RandomAccessFile(file, "rw")) {
+        try {
             rFile.seek(offset);
             rFile.write(inode.toByteArray());
         } catch (IOException e) {
@@ -155,10 +155,10 @@ public class SuperBlockService {
      * @param inodeNum index of read inode
      * @return Inode class instance under given index
      */
-    public Inode readInode(int inodeNum) {
+    public Inode readInode(int inodeNum, RandomAccessFile rFile) {
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
-        try (RandomAccessFile rFile = new RandomAccessFile(file, "rw")) {
+        try {
             rFile.seek(getInodeOffsetByIndex(inodeNum));
             rFile.read();
             byte[] result = new byte[Inode.getSizeOfStructure()];
@@ -174,13 +174,13 @@ public class SuperBlockService {
      *
      * @param inodeNum index of occupied inode
      */
-    public void removeInode(int inodeNum) {
+    public void removeInode(int inodeNum, RandomAccessFile rFile) {
         if (numOfInodes <= inodeNum || inodeNum < 0)
             throw new SuperBlockException("Not correct inodeNum");
 
         int offset = getInodeOffsetByIndex(inodeNum);
 
-        try (RandomAccessFile rFile = new RandomAccessFile(file, "rw")) {
+        try {
             rFile.seek(offset);
             if (rFile.read() == 0) {
                 throw new SuperBlockException("Inode was already released!");
