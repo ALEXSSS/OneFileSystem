@@ -85,6 +85,7 @@ public class FileManager implements OneFileSystem {
      * To initialise file system based on file.
      *
      * @param file with already initialised file system
+     * @param concurrencyLevel num of concurrently working threads (on windows always one)
      */
     public FileManager(File file, int concurrencyLevel) {
         superBlockService = new SuperBlockService(file);
@@ -111,7 +112,7 @@ public class FileManager implements OneFileSystem {
         poolOfFiles = new SilentBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
 
 
-        for (int i = 0; i < concurrencyLevel; i++) {
+        for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
             try {
                 poolOfFiles.put(new RandomAccessFile(file, "rw"));
             } catch (FileNotFoundException e) {
