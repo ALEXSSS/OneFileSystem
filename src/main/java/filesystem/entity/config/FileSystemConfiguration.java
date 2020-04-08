@@ -22,17 +22,17 @@ public class FileSystemConfiguration {
     /**
      * Constructor creates configuration object for file system
      *
-     * @param size        size of file system
-     * @param pageSize    pageSize (and default segment size)
-     * @param numOfInodes regulates how many files could be created ( will be initially filled in super-block)
-     * @param file        file to put file system in
+     * @param size             size of file system
+     * @param pageSize         pageSize (and default segment size)
+     * @param numOfInodes      regulates how many files could be created ( will be initially filled in super-block)
+     * @param file             file to put file system in
      * @param concurrencyLevel num of working threads to consider (for windows always 1)
      * @throws OneFileSystemException if file cannot be modified
      */
     public FileSystemConfiguration(
             long size, int pageSize, int numOfInodes, File file, boolean newFile, int concurrencyLevel
     ) {
-        if (size <= pageSize * numOfInodes){
+        if (size <= pageSize * numOfInodes) {
             throw new IllegalArgumentException("File size too small!");
         }
         if (pageSize < 1024) {
@@ -49,7 +49,7 @@ public class FileSystemConfiguration {
                 throw new IllegalArgumentException("File system configuration failed, due to file modification!", e);
             }
         }
-        if (isWindows()){
+        if (isWindows()) {
             this.concurrencyLevel = 1;
         } else {
             this.concurrencyLevel = concurrencyLevel;
@@ -87,8 +87,6 @@ public class FileSystemConfiguration {
     }
 
     public static boolean isWindows() {
-
         return OS.contains("win");
-
     }
 }

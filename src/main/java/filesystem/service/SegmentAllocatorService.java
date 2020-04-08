@@ -193,7 +193,7 @@ public class SegmentAllocatorService {
      *
      * @param segment to release
      */
-    public void releaseSegment(int segment,  RandomAccessFile file) {
+    public void releaseSegment(int segment, RandomAccessFile file) {
         Set<Segment> releasedSegments = new HashSet<>();
 
         int currSegment = segment;
@@ -344,7 +344,7 @@ public class SegmentAllocatorService {
         return amount + 1;
     }
 
-    private SegmentMetaData readSegmentMetaData(long segment,  RandomAccessFile file) {
+    private SegmentMetaData readSegmentMetaData(long segment, RandomAccessFile file) {
         try {
             file.seek(getMetaDataOffset(segment));
             return SegmentMetaData.of(file.readInt(), file.readInt(), file.readInt());
@@ -354,7 +354,7 @@ public class SegmentAllocatorService {
     }
 
 
-    private void writeMetaDataToSegment(long segment, SegmentMetaData metaData,  RandomAccessFile file) {
+    private void writeMetaDataToSegment(long segment, SegmentMetaData metaData, RandomAccessFile file) {
         try {
             byte[] metaBytes = metaData.toByteArray();
             file.seek(getMetaDataOffset(segment));

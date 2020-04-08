@@ -21,7 +21,7 @@ public class FileSystemUtils {
 
     public static String getFileParent(String pathToFile) {
         int index = pathToFile.lastIndexOf('/');
-        if (index == -1){
+        if (index == -1) {
             return "";
         }
         return pathToFile.substring(0, pathToFile.lastIndexOf('/'));
@@ -34,12 +34,11 @@ public class FileSystemUtils {
     }
 
     /**
-     *
      * @param possibleAncestor path in file system
-     * @param pathToCheck path to check
+     * @param pathToCheck      path to check
      * @return true if given path has possibleAncestor as its ancestor
      */
-    public static boolean checkThatDirectoryAncestor(String possibleAncestor, String pathToCheck){
+    public static boolean checkThatDirectoryAncestor(String possibleAncestor, String pathToCheck) {
         String ancestorFormatted = URI.create(possibleAncestor)
                 .normalize().toString().replace("/", " ").trim();
 
@@ -49,7 +48,7 @@ public class FileSystemUtils {
         return pathToCheckFormatted.contains(ancestorFormatted);
     }
 
-    public static String cleanFileName(String fileName){
-        return fileName.replace("/","");
+    public static String cleanFileName(String fileName) {
+        return fileName.replace("/", "");
     }
 }

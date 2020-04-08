@@ -649,10 +649,10 @@ public class FileManager implements OneFileSystem {
     }
 
     private void createFile(String pathToFileParent, String fileName, long size, RandomAccessFile file) {
-            fileName = cleanFileName(fileName);
-            checkFileName(fileName);
-            int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
-            addDEntryToDirectory(getFileInodeByPath(pathToFileParent, file), DEntry.of(fileName, fileInodeNum), file);
+        fileName = cleanFileName(fileName);
+        checkFileName(fileName);
+        int fileInodeNum = allocateNewBaseFileInf(size, fileName, file);
+        addDEntryToDirectory(getFileInodeByPath(pathToFileParent, file), DEntry.of(fileName, fileInodeNum), file);
     }
 
 }
