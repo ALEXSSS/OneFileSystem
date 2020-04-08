@@ -1,6 +1,5 @@
 package filesystem.manager;
 
-import com.sun.imageio.spi.RAFImageInputStreamSpi;
 import filesystem.entity.ByteStream;
 import filesystem.entity.config.FileSystemConfiguration;
 import filesystem.entity.datastorage.Inode;
@@ -13,14 +12,13 @@ import filesystem.service.SegmentAllocatorService;
 import filesystem.service.SuperBlockService;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import static filesystem.entity.filesystem.FileType.DIRECTORY;
 import static filesystem.entity.filesystem.FileType.FILE;
@@ -70,6 +68,16 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getPageSize(),
                 fileSystemConfiguration.getFile()
         );
+
+
+        for (int i = 0; i < fileSystemConfiguration.getConcurrencyLevel(); i++) {
+            try {
+                poolOfFiles.put(new RandomAccessFile(fileSystemConfiguration.getFile(), "rw"));
+            } catch (FileNotFoundException e) {
+                throw new FileManagerException("File doesn't exist!", e);
+            }
+        }
+
         initialiseRoot();
     }
 
@@ -92,6 +100,7 @@ public class FileManager implements OneFileSystem {
 
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
+
         segmentAllocatorService = new SegmentAllocatorService(
                 superBlockService.getSuperBlockOffset(),
                 segmentsAmount,
@@ -100,6 +109,15 @@ public class FileManager implements OneFileSystem {
         );
 
         poolOfFiles = new SilentBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
+
+
+        for (int i = 0; i < concurrencyLevel; i++) {
+            try {
+                poolOfFiles.put(new RandomAccessFile(file, "rw"));
+            } catch (FileNotFoundException e) {
+                throw new FileManagerException("File doesn't exist!", e);
+            }
+        }
     }
 
     // external api
@@ -346,6 +364,7 @@ public class FileManager implements OneFileSystem {
     public void createHardLink(String pathToFile, String whereToAdd, String nameOfHardLink) {
         RandomAccessFile file = null;
         try {
+            file = poolOfFiles.take();
             createHardLink(pathToFile, whereToAdd, nameOfHardLink, file);
         } finally {
             poolOfFiles.put(file);

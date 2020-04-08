@@ -17,6 +17,7 @@ public class FileSystemConfiguration {
     private final int concurrencyLevel; // regulates how many files could be created ( will be initially filled in super-block)
     private final File file; // file to put file system in
 
+    private static String OS = System.getProperty("os.name").toLowerCase();
 
     /**
      * Constructor creates configuration object for file system
@@ -25,6 +26,7 @@ public class FileSystemConfiguration {
      * @param pageSize    pageSize (and default segment size)
      * @param numOfInodes regulates how many files could be created ( will be initially filled in super-block)
      * @param file        file to put file system in
+     * @param concurrencyLevel num of working threads to consider (for windows always 1)
      * @throws OneFileSystemException if file cannot be modified
      */
     public FileSystemConfiguration(
@@ -47,7 +49,11 @@ public class FileSystemConfiguration {
                 throw new IllegalArgumentException("File system configuration failed, due to file modification!", e);
             }
         }
-        this.concurrencyLevel = concurrencyLevel;
+        if (isWindows()){
+            this.concurrencyLevel = 1;
+        } else {
+            this.concurrencyLevel = concurrencyLevel;
+        }
         this.size = size;
         this.pageSize = pageSize;
         this.numOfInodes = numOfInodes;
@@ -78,5 +84,11 @@ public class FileSystemConfiguration {
 
     public int getConcurrencyLevel() {
         return concurrencyLevel;
+    }
+
+    public static boolean isWindows() {
+
+        return OS.contains("win");
+
     }
 }

@@ -44,7 +44,7 @@ public class SegmentAllocatorServiceTest {
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             int toAllocate = 20;
 
-            int segment = segmentAllocatorService.allocateSegments(toAllocate);
+            int segment = segmentAllocatorService.allocateSegments(toAllocate, file);
             assertEquals(NUM_OF_PAGES - toAllocate, segmentAllocatorService.getRemainingCapacity());
 
             file.seek(segmentAllocatorService.getInitialOffset());
@@ -54,7 +54,7 @@ public class SegmentAllocatorServiceTest {
             assertEquals(0, file.readInt());
 
 
-            segmentAllocatorService.writeDataToSegment(segment, new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+            segmentAllocatorService.writeDataToSegment(segment, new byte[]{1, 2, 3, 4, 5, 6, 7, 8}, file);
 
             file.seek(segmentAllocatorService.getInitialOffset() + segment + SegmentMetaData.getSizeOfStructure());
 
@@ -70,7 +70,7 @@ public class SegmentAllocatorServiceTest {
 
             //meta check
 
-            SegmentMetaData meta = readSegmentMetaDataPublicly(segment);
+            SegmentMetaData meta = readSegmentMetaDataPublicly(segment, file);
 
             assertEquals(20, meta.getNumsOfContinuousBlocks());
             assertEquals(8, meta.getOccupied());
@@ -78,28 +78,28 @@ public class SegmentAllocatorServiceTest {
 
             //allocate new data
 
-            segmentAllocatorService.allocateSegments(1);
+            segmentAllocatorService.allocateSegments(1, file);
 
             byte[] ones = new byte[DEFAULT_SIZE_OF_PAGE * 20 - SegmentMetaData.getSizeOfStructure()];
             Arrays.fill(ones, (byte) 1);
             ones[ones.length - 1] = 5;
-            segmentAllocatorService.writeDataToSegment(segment, ones);
+            segmentAllocatorService.writeDataToSegment(segment, ones, file);
 
             //meta check
 
-            meta = readSegmentMetaDataPublicly(segment);
+            meta = readSegmentMetaDataPublicly(segment, file);
 
             assertEquals(20, meta.getNumsOfContinuousBlocks());
             assertEquals(DEFAULT_SIZE_OF_PAGE * 20 - SegmentMetaData.getSizeOfStructure(), meta.getOccupied());
             assertEquals(21, meta.getNextSegment());
 
-            meta = readSegmentMetaDataPublicly(20);
+            meta = readSegmentMetaDataPublicly(20, file);
 
             assertEquals(1, meta.getNumsOfContinuousBlocks());
             assertEquals(0, meta.getOccupied());
             assertEquals(-1, meta.getNextSegment());
 
-            meta = readSegmentMetaDataPublicly(21);
+            meta = readSegmentMetaDataPublicly(21, file);
 
             assertEquals(1, meta.getNumsOfContinuousBlocks());
             assertEquals(8, meta.getOccupied());
@@ -122,7 +122,7 @@ public class SegmentAllocatorServiceTest {
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             int toAllocate = 20;
 
-            int segment = segmentAllocatorService.allocateSegments(toAllocate);
+            int segment = segmentAllocatorService.allocateSegments(toAllocate, file);
             assertEquals(NUM_OF_PAGES - toAllocate, segmentAllocatorService.getRemainingCapacity());
 
             file.seek(segmentAllocatorService.getInitialOffset() + segment);
@@ -131,7 +131,7 @@ public class SegmentAllocatorServiceTest {
             assertEquals(-1, file.readInt());
             assertEquals(0, file.readInt());
 
-            SegmentMetaData metaData = readSegmentMetaDataPublicly(segment);
+            SegmentMetaData metaData = readSegmentMetaDataPublicly(segment, file);
 
             assertEquals(20, metaData.getNumsOfContinuousBlocks());
             assertEquals(0, metaData.getOccupied());
@@ -140,97 +140,108 @@ public class SegmentAllocatorServiceTest {
     }
 
     @Test
-    public void readDataFromSegmentTest() {
-        int segment = segmentAllocatorService.allocateSegments(20);
+    public void readDataFromSegmentTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
 
-        segmentAllocatorService.allocateSegments(2);
+            int segment = segmentAllocatorService.allocateSegments(20, file);
+
+            segmentAllocatorService.allocateSegments(2, file);
 
 
-        byte[] ones = new byte[DEFAULT_SIZE_OF_PAGE * 22 - SegmentMetaData.getSizeOfStructure()];
-        Arrays.fill(ones, (byte) 1);
-        ones[ones.length - 1] = 5;
-        segmentAllocatorService.writeDataToSegment(segment, ones);
+            byte[] ones = new byte[DEFAULT_SIZE_OF_PAGE * 22 - SegmentMetaData.getSizeOfStructure()];
+            Arrays.fill(ones, (byte) 1);
+            ones[ones.length - 1] = 5;
+            segmentAllocatorService.writeDataToSegment(segment, ones, file);
 
-        segmentAllocatorService.allocateSegments(2);
+            segmentAllocatorService.allocateSegments(2, file);
 
-        byte[] twos = new byte[DEFAULT_SIZE_OF_PAGE * 3 - SegmentMetaData.getSizeOfStructure()];
-        Arrays.fill(twos, (byte) 2);
-        twos[twos.length - 1] = 6;
-        segmentAllocatorService.writeDataToSegment(segment, twos);
+            byte[] twos = new byte[DEFAULT_SIZE_OF_PAGE * 3 - SegmentMetaData.getSizeOfStructure()];
+            Arrays.fill(twos, (byte) 2);
+            twos[twos.length - 1] = 6;
+            segmentAllocatorService.writeDataToSegment(segment, twos, file);
 
-        SegmentReadResult readResult = segmentAllocatorService.readDataFromSegment(segment);
-        SegmentReadResult readResult1 = segmentAllocatorService.readDataFromSegment(readResult.getNextSegment());
-        SegmentReadResult readResult2 = segmentAllocatorService.readDataFromSegment(readResult1.getNextSegment());
+            SegmentReadResult readResult = segmentAllocatorService.readDataFromSegment(segment, file);
+            SegmentReadResult readResult1 = segmentAllocatorService.readDataFromSegment(readResult.getNextSegment(), file);
+            SegmentReadResult readResult2 = segmentAllocatorService.readDataFromSegment(readResult1.getNextSegment(), file);
 
-        byte[] actual = new byte[readResult.getArr().length + readResult1.getArr().length + readResult2.getArr().length];
+            byte[] actual = new byte[readResult.getArr().length + readResult1.getArr().length + readResult2.getArr().length];
 
-        ByteBuffer buffActual = ByteBuffer.wrap(actual);
-        buffActual.put(readResult.getArr());
-        buffActual.put(readResult1.getArr());
-        buffActual.put(readResult2.getArr());
+            ByteBuffer buffActual = ByteBuffer.wrap(actual);
+            buffActual.put(readResult.getArr());
+            buffActual.put(readResult1.getArr());
+            buffActual.put(readResult2.getArr());
 
-        actual = buffActual.array();
+            actual = buffActual.array();
 
-        byte[] expected = new byte[ones.length + twos.length];
+            byte[] expected = new byte[ones.length + twos.length];
 
-        ByteBuffer buffExpected = ByteBuffer.wrap(expected);
-        buffExpected.put(ones);
-        buffExpected.put(twos);
+            ByteBuffer buffExpected = ByteBuffer.wrap(expected);
+            buffExpected.put(ones);
+            buffExpected.put(twos);
 
-        expected = buffExpected.array();
-        assertArrayEquals(expected, actual);
+            expected = buffExpected.array();
+            assertArrayEquals(expected, actual);
+        }
     }
 
     @Test(expected = SegmentAllocatorException.class)
-    public void tryAllocateMoreThanPossiblePages() {
-        segmentAllocatorService.allocateSegments(NUM_OF_PAGES + 1);
-    }
-
-    @Test
-    public void tryAllocateAllPossiblePagesTest() {
-        int initialSize = segmentAllocatorService.getRemainingCapacity();
-        int segment = segmentAllocatorService.allocateSegments(NUM_OF_PAGES);
-        segmentAllocatorService.releaseSegment(segment);
-        assertEquals("Size should be the same!", initialSize, segmentAllocatorService.getRemainingCapacity());
-    }
-
-    @Test
-    public void releaseSegmentsTest() {
-        byte[] ones = new byte[DEFAULT_SIZE_OF_PAGE * 20 - SegmentMetaData.getSizeOfStructure()];
-        byte[] ones1 = new byte[DEFAULT_SIZE_OF_PAGE - SegmentMetaData.getSizeOfStructure()];
-        byte[] ones2 = new byte[DEFAULT_SIZE_OF_PAGE * 2 - SegmentMetaData.getSizeOfStructure()];
-        byte[] ones3 = new byte[DEFAULT_SIZE_OF_PAGE * 3 - SegmentMetaData.getSizeOfStructure()];
-
-        List<Integer> owners = Arrays.asList(
-                segmentAllocatorService.allocateSegments(20),
-                segmentAllocatorService.allocateSegments(20),
-                segmentAllocatorService.allocateSegments(20));
-
-        segmentAllocatorService.writeDataToSegment(owners.get(0), ones);
-        segmentAllocatorService.writeDataToSegment(owners.get(1), ones);
-        segmentAllocatorService.writeDataToSegment(owners.get(2), ones);
-
-        for (int i = 0; i < 10; i++) {
-            segmentAllocatorService.writeDataToSegment(owners.get(0), ones1);
-            segmentAllocatorService.writeDataToSegment(owners.get(1), ones2);
-            segmentAllocatorService.writeDataToSegment(owners.get(2), ones3);
+    public void tryAllocateMoreThanPossiblePages() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
+            segmentAllocatorService.allocateSegments(NUM_OF_PAGES + 1, file);
         }
+    }
 
-        segmentAllocatorService.releaseSegment(owners.get(0));
-        segmentAllocatorService.releaseSegment(owners.get(1));
-        segmentAllocatorService.releaseSegment(owners.get(2));
+    @Test
+    public void tryAllocateAllPossiblePagesTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
 
-        assertEquals(NUM_OF_PAGES, segmentAllocatorService.getRemainingCapacity());
+            int initialSize = segmentAllocatorService.getRemainingCapacity();
+            int segment = segmentAllocatorService.allocateSegments(NUM_OF_PAGES, file);
+            segmentAllocatorService.releaseSegment(segment, file);
+            assertEquals("Size should be the same!", initialSize, segmentAllocatorService.getRemainingCapacity());
+        }
+    }
+
+    @Test
+    public void releaseSegmentsTest() throws IOException {
+        try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
+
+            byte[] ones = new byte[DEFAULT_SIZE_OF_PAGE * 20 - SegmentMetaData.getSizeOfStructure()];
+            byte[] ones1 = new byte[DEFAULT_SIZE_OF_PAGE - SegmentMetaData.getSizeOfStructure()];
+            byte[] ones2 = new byte[DEFAULT_SIZE_OF_PAGE * 2 - SegmentMetaData.getSizeOfStructure()];
+            byte[] ones3 = new byte[DEFAULT_SIZE_OF_PAGE * 3 - SegmentMetaData.getSizeOfStructure()];
+
+            List<Integer> owners = Arrays.asList(
+                    segmentAllocatorService.allocateSegments(20, file),
+                    segmentAllocatorService.allocateSegments(20, file),
+                    segmentAllocatorService.allocateSegments(20, file));
+
+            segmentAllocatorService.writeDataToSegment(owners.get(0), ones, file);
+            segmentAllocatorService.writeDataToSegment(owners.get(1), ones, file);
+            segmentAllocatorService.writeDataToSegment(owners.get(2), ones, file);
+
+            for (int i = 0; i < 10; i++) {
+                segmentAllocatorService.writeDataToSegment(owners.get(0), ones1, file);
+                segmentAllocatorService.writeDataToSegment(owners.get(1), ones2, file);
+                segmentAllocatorService.writeDataToSegment(owners.get(2), ones3, file);
+            }
+
+            segmentAllocatorService.releaseSegment(owners.get(0), file);
+            segmentAllocatorService.releaseSegment(owners.get(1), file);
+            segmentAllocatorService.releaseSegment(owners.get(2), file);
+
+            assertEquals(NUM_OF_PAGES, segmentAllocatorService.getRemainingCapacity());
+        }
     }
 
 
-    private static SegmentMetaData readSegmentMetaDataPublicly(int segment) {
+    private static SegmentMetaData readSegmentMetaDataPublicly(int segment, RandomAccessFile file) {
         try {
             Method method = Arrays.stream(segmentAllocatorService.getClass()
                     .getDeclaredMethods()).filter(it -> it.getName().equals("readSegmentMetaData"))
                     .collect(Collectors.toList()).get(0);
             method.setAccessible(true);
-            Object result = method.invoke(segmentAllocatorService, segment);
+            Object result = method.invoke(segmentAllocatorService, segment, file);
             return (SegmentMetaData) result;
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException("this is test!", e);

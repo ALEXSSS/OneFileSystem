@@ -46,7 +46,7 @@ public class FileManagerTest {
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
             file.setLength(size);
         }
-        fileSystemConfiguration = FileSystemConfiguration.of(size, DEFAULT_SIZE_OF_PAGE, 100, originalFile, true);
+        fileSystemConfiguration = FileSystemConfiguration.of(size, DEFAULT_SIZE_OF_PAGE, 100, originalFile, true, 10);
         fileManager = new FileManager(fileSystemConfiguration);
         originalFile.deleteOnExit();
     }
@@ -116,7 +116,7 @@ public class FileManagerTest {
     @Test
     public void allocateComplexFileTree() throws IOException {
         File file = File.createTempFile("test2", "test");
-        FileSystemConfiguration fileSystemConfiguration = FileSystemConfiguration.of(4096 * 4096 * 100, 1024, 1111, file, true);
+        FileSystemConfiguration fileSystemConfiguration = FileSystemConfiguration.of(4096 * 4096 * 100, 1024, 1111, file, true, 10);
         FileManager newFileManager = new FileManager(fileSystemConfiguration);
 
         long initialSize = newFileManager.getSizeInPages();

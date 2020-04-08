@@ -51,8 +51,8 @@ public class FileManagerSynchronized implements OneFileSystem {
      *
      * @param file with already initialised file system
      */
-    public FileManagerSynchronized(File file) {
-        this.fileManager = new FileManager(file);
+    public FileManagerSynchronized(File file, int concurrencyLevel) {
+        this.fileManager = new FileManager(file, concurrencyLevel);
     }
 
 
