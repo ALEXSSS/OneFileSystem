@@ -141,7 +141,7 @@ public class SegmentAllocatorService {
      * @param toWrite byte array with data
      * @param length  how many bytes to read
      */
-    public int writeDataToSegment(int segment, byte[] toWrite, int length) {
+    public int writeDataToSegment(int segment, byte[] toWrite, int length, RandomAccessFile file) {
 
         int currentSegment = segment;
         int cursorInData = 0;
@@ -154,7 +154,7 @@ public class SegmentAllocatorService {
                         (SegmentMetaData.getSizeOfStructure() + metaData.getOccupied());
                 int possibleToWrite = min(freeToWrite, length - cursorInData);
 
-                try (RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
+                try {
                     byte[] temp = new byte[possibleToWrite];
                     System.arraycopy(toWrite, cursorInData, temp, 0, possibleToWrite);
                     file.seek(getDataOffset(currentSegment) + metaData.getOccupied());
@@ -184,8 +184,8 @@ public class SegmentAllocatorService {
         return currentSegment;
     }
 
-    public int writeDataToSegment(int segment, byte[] toWrite) {
-        return writeDataToSegment(segment, toWrite, toWrite.length);
+    public int writeDataToSegment(int segment, byte[] toWrite, RandomAccessFile file) {
+        return writeDataToSegment(segment, toWrite, toWrite.length, file);
     }
 
     /**

@@ -14,6 +14,7 @@ public class FileSystemConfiguration {
     private final long size; // size of file system
     private final int pageSize; // pageSize (and default segment size)
     private final int numOfInodes; // regulates how many files could be created ( will be initially filled in super-block)
+    private final int concurrencyLevel; // regulates how many files could be created ( will be initially filled in super-block)
     private final File file; // file to put file system in
 
 
@@ -27,7 +28,7 @@ public class FileSystemConfiguration {
      * @throws OneFileSystemException if file cannot be modified
      */
     public FileSystemConfiguration(
-            long size, int pageSize, int numOfInodes, File file, boolean newFile
+            long size, int pageSize, int numOfInodes, File file, boolean newFile, int concurrencyLevel
     ) {
         if (size <= pageSize * numOfInodes){
             throw new IllegalArgumentException("File size too small!");
@@ -46,6 +47,7 @@ public class FileSystemConfiguration {
                 throw new IllegalArgumentException("File system configuration failed, due to file modification!", e);
             }
         }
+        this.concurrencyLevel = concurrencyLevel;
         this.size = size;
         this.pageSize = pageSize;
         this.numOfInodes = numOfInodes;
@@ -53,9 +55,9 @@ public class FileSystemConfiguration {
     }
 
     public static FileSystemConfiguration of(
-            long size, int pageSize, int numOfInodes, File file, boolean newFile
+            long size, int pageSize, int numOfInodes, File file, boolean newFile, int concurrencyLevel
     ) {
-        return new FileSystemConfiguration(size, pageSize, numOfInodes, file, newFile);
+        return new FileSystemConfiguration(size, pageSize, numOfInodes, file, newFile, concurrencyLevel);
     }
 
     public long getSize() {
@@ -72,5 +74,9 @@ public class FileSystemConfiguration {
 
     public File getFile() {
         return file;
+    }
+
+    public int getConcurrencyLevel() {
+        return concurrencyLevel;
     }
 }

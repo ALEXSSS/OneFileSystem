@@ -14,9 +14,12 @@ import filesystem.service.SuperBlockService;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static filesystem.entity.filesystem.FileType.DIRECTORY;
 import static filesystem.entity.filesystem.FileType.FILE;
@@ -42,6 +45,8 @@ public class FileManager implements OneFileSystem {
     private final SegmentAllocatorService segmentAllocatorService;
 
 
+    private final BlockingQueue<RandomAccessFile> poolOfFiles;
+
     /**
      * Creates and configures fileSystem
      *
@@ -55,6 +60,7 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getFile()
         );
 
+        poolOfFiles = new LinkedBlockingQueue<>(fileSystemConfiguration.getConcurrencyLevel());
         int segmentsAmount = getSegmentsAmount(fileSystemConfiguration, superBlockService.getSuperBlockOffset());
 
         segmentAllocatorService = new SegmentAllocatorService(
@@ -71,7 +77,7 @@ public class FileManager implements OneFileSystem {
      *
      * @param file with already initialised file system
      */
-    public FileManager(File file) {
+    public FileManager(File file, int concurrencyLevel) {
         superBlockService = new SuperBlockService(file);
 
         fileSystemConfiguration = FileSystemConfiguration.of(
@@ -90,6 +96,8 @@ public class FileManager implements OneFileSystem {
                 fileSystemConfiguration.getPageSize(),
                 file
         );
+
+        poolOfFiles = new LinkedBlockingQueue<>(concurrencyLevel);
     }
 
     // external api
