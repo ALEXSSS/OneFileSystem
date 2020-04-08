@@ -293,7 +293,7 @@ public class SegmentAllocatorService {
     }
 
     public long getMetaDataOffset(long segment) {
-        return initialOffset + segment * pageSize;
+        return initialOffset + segment * (long) pageSize;
     }
 
     public int getRemainingCapacity() {
@@ -305,7 +305,7 @@ public class SegmentAllocatorService {
     }
 
     private long getDataOffset(long segment) {
-        return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * pageSize;
+        return initialOffset + SegmentMetaData.getSizeOfStructure() + segment * (long) pageSize;
     }
 
     private SegmentMetaData expandSegment(

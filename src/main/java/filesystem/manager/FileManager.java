@@ -431,7 +431,7 @@ public class FileManager implements OneFileSystem {
      */
     @Override
     public long getSize() {
-        return segmentAllocatorService.getRemainingCapacity() * fileSystemConfiguration.getPageSize();
+        return segmentAllocatorService.getRemainingCapacity() * (long) fileSystemConfiguration.getPageSize();
     }
 
     /**

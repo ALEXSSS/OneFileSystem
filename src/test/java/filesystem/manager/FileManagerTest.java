@@ -40,7 +40,7 @@ public class FileManagerTest {
 
     @Before
     public void init() throws IOException {
-        long size = DEFAULT_SIZE_OF_PAGE * 100000;
+        long size = DEFAULT_SIZE_OF_PAGE * 1024l * 1024l;
         File originalFile = File.createTempFile("test", "test");
         originalFile.createNewFile();
         try (RandomAccessFile file = new RandomAccessFile(originalFile, "rw")) {
@@ -128,7 +128,7 @@ public class FileManagerTest {
                 newFileManager.createDirectory("./" + startDirectory, newDirectory);
                 for (int k = 0; k < 10; k++) {
                     newFileManager.createFile("./" + startDirectory, "file" + k, k * 1024);
-                    newFileManager.writeToFile("./" + startDirectory + "/" + "file" + k, new byte[]{1,2,3,4,5});
+                    newFileManager.writeToFile("./" + startDirectory + "/" + "file" + k, new byte[]{1, 2, 3, 4, 5});
                 }
                 startDirectory.append(newDirectory);
             }
@@ -585,6 +585,5 @@ public class FileManagerTest {
         try (OutputStream out = new FileOutputStream(copiedJpg)) {
             fileManager.copyDataFromFileToOutputStream("/smallFile", out);
         }
-
     }
 }
