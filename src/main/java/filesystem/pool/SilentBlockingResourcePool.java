@@ -10,6 +10,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * Resource pool with blocking put and take methods.
  * Removes necessity for dealing with checked exceptions.
+ *
+ * Remember, it will let only one thread take and return resource back, You cannot take and return resource by another thread.
+ * <p>
+ * Also you cannot take resource twice by the same thread!
  * <p>
  *
  * @param <T> type of resource
